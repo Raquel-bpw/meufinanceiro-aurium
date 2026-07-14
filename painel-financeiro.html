@@ -1128,7 +1128,7 @@ let donutChart=null, fluxoChart=null;
 let calRef=new Date(), csvLinhas=[], csvHeader=[];
 
 const GRUPOS_DESPESA=['CUSTOS VARIÁVEIS','DESPESAS COM PESSOAL','DESPESAS COMERCIAIS','DESPESAS ADMINISTRATIVAS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','INVESTIMENTOS / RESERVAS','Fornecedores','Despesa Fixa','Não Operacional','Investimento','Outras Variáveis'];
-const LABEL_GRUPO={'RECEITA DE SERVIÇOS':'ENTRADAS DE SERVIÇOS','RECEITA DE PRODUTOS':'ENTRADAS DE PRODUTOS','OUTRAS RECEITAS':'OUTRAS ENTRADAS OPERACIONAIS','OUTRAS ENTRADAS':'OUTRAS ENTRADAS (não compõem o lucro)','INVESTIMENTOS / RESERVAS':'INVESTIMENTOS'};
+const LABEL_GRUPO={'RECEITA DE SERVIÇOS':'ENTRADAS DE SERVIÇOS','RECEITA DE PRODUTOS':'ENTRADAS DE PRODUTOS','OUTRAS RECEITAS':'OUTRAS ENTRADAS OPERACIONAIS','OUTRAS ENTRADAS':'OUTRAS ENTRADAS (não compõem o lucro)','INVESTIMENTOS / RESERVAS':'INVESTIMENTOS','CUSTOS VARIÁVEIS':'DESPESAS VARIÁVEIS'};
 const ORDEM_GRUPOS=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS','OUTRAS ENTRADAS'].concat(GRUPOS_DESPESA);
 const GRUPOS_FATURAMENTO=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS'];
 const CORES_GRUPO={'ENTRADAS':'#16447a','CUSTOS VARIÁVEIS':'#1c4d61','DESPESAS COM PESSOAL':'#c1922f','DESPESAS COMERCIAIS':'#2f6479','DESPESAS ADMINISTRATIVAS':'#3a5a8c','DESPESAS COM MANUTENÇÃO':'#6b4a7a','FINANCEIRO':'#b23b3b','INVESTIMENTOS / RESERVAS':'#2e7d5b','Fornecedores':'#1c4d61','Despesa Fixa':'#c1922f','Não Operacional':'#3a5a8c','Investimento':'#6b4a7a','Outras Variáveis':'#16447a','Receita':'#16447a'};
@@ -1282,11 +1282,9 @@ function loadApp(){
   }
   if(!APP.perfilAtivo||!APP.perfis.find(p=>p.id===APP.perfilAtivo))APP.perfilAtivo=APP.perfis[0].id;
   APP.perfis.forEach(p=>{if(!p.dados.orcamentos)p.dados.orcamentos=[];if(!p.dados.regras)p.dados.regras=[];if(!p.dados.unidades)p.dados.unidades=[];if(!p.dados.bancos)p.dados.bancos=[];if(!p.dados.cartoes)p.dados.cartoes=[];(p.dados.bancos||[]).forEach(b=>{if(b.ativo===undefined)b.ativo=true;if(!b.tipo)b.tipo='Conta corrente';});(p.dados.lancamentos||[]).forEach(l=>{['descricao','cliente','servico','categoria','banco','unidade'].forEach(k=>{if(l[k])l[k]=corrigeMoji(l[k]);});if(!l.cliente&&l.descricao&&l.descricao.indexOf(' — ')>=0){const _p=l.descricao.split(' — ');l.cliente=_p[0].trim();if(!l.servico)l.servico=_p.slice(1).join(' — ').trim();}});if(!p.dados.servicos)p.dados.servicos=[];if(!p.dados.vencimentos)p.dados.vencimentos=[];if(!p.dados.validacoes)p.dados.validacoes=[];if(!p.dados.tags)p.dados.tags=[];if(!p.dados.unidadesTipo)p.dados.unidadesTipo={};if(!p.dados.empresas){const _es=[];const _info=p.dados.unidadesInfo||[];const _cli=p.dados.cliente||{};if(_info.length){_info.forEach(u=>_es.push({id:u.id||id(),unidade:u.nome,tipo:u.tipo||'',razaoSocial:_cli.razaoSocial||p.nome||'',responsavel:_cli.responsavel||'',cnpj:u.cnpj||'',email:u.email||'',telefone:u.telefone||'',logradouro:u.logradouro||'',numero:u.numero||'',complemento:u.complemento||'',cep:u.cep||'',bairro:u.bairro||'',municipio:u.municipio||'',uf:u.uf||'',dataSituacao:u.dataSituacao||''}));}else if(_cli.razaoSocial||_cli.cnpj){_es.push({id:id(),unidade:_cli.razaoSocial||'Matriz',tipo:'Matriz',razaoSocial:_cli.razaoSocial||p.nome||'',responsavel:_cli.responsavel||'',cnpj:_cli.cnpj||'',email:_cli.email||'',telefone:_cli.telefone||'',logradouro:_cli.logradouro||'',numero:_cli.numero||'',complemento:_cli.complemento||'',cep:_cli.cep||'',bairro:_cli.bairro||'',municipio:_cli.municipio||'',uf:_cli.uf||'',dataSituacao:_cli.dataSituacao||''});}p.dados.empresas=_es;}p.dados.unidades=(p.dados.empresas||[]).map(e=>e.unidade).filter(Boolean);p.dados.unidadesTipo={};(p.dados.empresas||[]).forEach(e=>{if(e.unidade)p.dados.unidadesTipo[e.unidade]=e.tipo||'';});if(!p.dados.cliente)p.dados.cliente={razaoSocial:p.nome||'',cnpj:'',responsavel:'',contato:''};if(p.dados.autoConciliar===undefined)p.dados.autoConciliar=true;});
-  // migração (uma única vez): reagrupar categorias de receita (ENTRADA) nos 4 sub-grupos novos
-  if(!APP._migEntradaGruposV1){
-    APP.perfis.forEach(p=>{(p.dados.categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const g=entradaGrupoPara(c.nome);if(g)c.grupo=g;});});
-    APP._migEntradaGruposV1=true;
-  }
+  // ESTRUTURA de ENTRADAS: reaplicada SEMPRE (idempotente) — assim a separação Serviços/Produtos
+  // não se perde ao importar um backup antigo. Só reclassifica as categorias conhecidas do mapa.
+  APP.perfis.forEach(p=>{(p.dados.categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const _n=_normEntradaNome(c.nome);if(ENTRADA_GRUPO_MAP[_n]&&!ENTRADA_GRUPO_EXCLUIR.includes(_n))c.grupo=ENTRADA_GRUPO_MAP[_n];});});
   // migração (uma única vez): "Venda de Cartão Zoop" era ambígua (recebimentos via link de cartão OU
   // boleto de vendas a prazo) — vira "Recebimento de Vendas a Prazo – Serviços", e passa a existir
   // também a categoria irmã "…– Produtos".
@@ -1956,8 +1954,10 @@ function renderDemonstrativo(){
       html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">Valor aplicado no período — sai do caixa operacional e vira patrimônio (não é despesa).</td></tr>`;
     }
   }
-  gtit('SALDO EM CONTA');
-  bancosVisiveis().forEach(b=>{const arr=meses.map(m=>{let s=(+b.saldoInicial||0);allM.forEach(mm=>{if(mm<=m)s+=demoLancs().filter(l=>(l.banco||'')===b.nome&&l.data.slice(0,7)===mm).reduce((a,l)=>a+(l.tipo==='receita'?(+l.valor||0):-(+l.valor||0)),0);});return s;});larr(b.nome,arr,false);});
+  {const _bcs=bancosVisiveis().map(b=>({nome:b.nome,arr:meses.map(m=>{let s=(+b.saldoInicial||0);allM.forEach(mm=>{if(mm<=m)s+=demoLancs().filter(l=>(l.banco||'')===b.nome&&l.data.slice(0,7)===mm).reduce((a,l)=>a+(l.tipo==='receita'?(+l.valor||0):-(+l.valor||0)),0);});return s;})}));
+  const _tot=meses.map((mm,i)=>_bcs.reduce((s,b)=>s+(b.arr[i]||0),0));
+  _gc++;const gc=_gc;let hr=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog);color:var(--vinho);font-weight:700"><td style="text-align:left;padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>SALDO EM CONTA</td>`;const hx=['SALDO EM CONTA'];_tot.forEach(v=>{hr+=`<td style="text-align:right;padding:7px 8px">${moeda(v)}</td><td></td>`;hx.push(v.toFixed(2));hx.push('');});hr+=`<td style="text-align:right;padding:7px 8px">${moeda(_tot[_tot.length-1]||0)}</td></tr>`;hx.push((_tot[_tot.length-1]||0).toFixed(2));html+=hr;aoa.push(hx);
+  _bcs.forEach(b=>{let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px">${b.nome}</td>`;const lx=[b.nome];b.arr.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px">${moeda(b.arr[b.arr.length-1]||0)}</td></tr>`;lx.push((b.arr[b.arr.length-1]||0).toFixed(2));html+=row;aoa.push(lx);});}
   html+='</tbody></table>';
   box.innerHTML=html;_demoAOA=aoa;
 }
