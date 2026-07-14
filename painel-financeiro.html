@@ -477,7 +477,7 @@
     <div id="saudeBox"></div>
     <div id="analiseCards" class="grid-analise"></div>
 
-    <div class="grid2" style="margin-top:22px">
+    <div class="grid2" style="margin-top:22px;grid-template-columns:1fr 1fr">
       <div class="card"><h2>Receita vs Despesas</h2><div class="cap">Últimos 6 meses.</div><canvas id="chartRecDesp" height="150"></canvas></div>
       <div class="card"><h2>Evolução do lucro</h2><div class="cap">Resultado mês a mês.</div><canvas id="chartLucro" height="150"></canvas></div>
     </div>
@@ -763,8 +763,7 @@
     <div class="titulo-pg"><em>Relatórios</em></div>
     <div class="sub-pg">Visão executiva do período. Use os filtros de período e unidade no topo.</div>
     <div style="margin-bottom:18px"><button class="btn ouro" onclick="gerarDiagnostico()">🖨 Gerar diagnóstico em PDF para a cliente</button></div>
-    <div class="card"><h2>Fluxo de Caixa</h2><div class="cap">Receita, despesas por grupo, lucro e margem do período.</div><div id="relDRE"></div></div>
-    <div class="grid2">
+    <div class="grid2" style="grid-template-columns:1fr 1fr;align-items:start">
       <div class="card"><h2>Receitas por categoria</h2><div class="cap">&nbsp;</div><div id="relRec"></div></div>
       <div class="card"><h2>Despesas por categoria</h2><div class="cap">&nbsp;</div><div id="relDesp"></div></div>
     </div>
@@ -1049,7 +1048,7 @@
       </div>
       <div class="mini" id="ultimoBackupTxt" style="margin-top:12px">Último backup: —</div>
     </div>
-    <div class="alerta ok"><span>🔒</span><div><b>Privacidade total:</b> os dados ficam salvos apenas neste dispositivo — nada vai para servidores. Você no comando.</div></div>
+    <div class="alerta ok"><span>🔒</span><div><b>Seus dados na nuvem, isolados por conta:</b> tudo é salvo com segurança na nuvem (Supabase), e cada conta só enxerga os próprios dados. Faça backup pelo menu de vez em quando.</div></div>
     <div class="card"><div class="help">
       <p><b>E as conexões automáticas?</b> No futuro entram aqui — conectar o banco para importar o extrato sozinho, ou o sistema da clínica para puxar os atendimentos. Por enquanto, a entrada de dados é pela aba Importar, com PDF, CSV, OFX ou Excel. As integrações automáticas dependem da versão na nuvem, com servidor — quando você decidir esse passo, elas entram aqui.</p>
     </div></div>
@@ -1104,7 +1103,7 @@
   </section>
 </main>
   <div class="rodape-fin">
-    <div class="alerta ok"><span>🔒</span><div><b>Privacidade total:</b> os dados ficam salvos apenas neste dispositivo — nada vai para servidores. Você no comando.</div></div>
+    <div class="alerta ok"><span>🔒</span><div><b>Seus dados na nuvem, isolados por conta:</b> tudo é salvo com segurança na nuvem (Supabase), e cada conta só enxerga os próprios dados. Faça backup pelo menu de vez em quando.</div></div>
     <footer style="text-align:center; padding:36px 0; background:#f5f2ee;">
       <div style="width:60px; height:2px; background:#b8963e; margin:0 auto 20px;"></div>
       <div style="font-family:Georgia,serif; font-style:italic; font-size:22px; color:#3d7ea6;">
@@ -1269,6 +1268,7 @@ async function cloudLoad(){try{const u=await cloudUser();if(!u)return null;const
 let _cloudT=null;
 function cloudSave(now){if(!cloudOn()||!window._cloudReady)return;clearTimeout(_cloudT);const go=async()=>{try{const u=await cloudUser();if(!u)return;const{error}=await sb.from('painel').upsert({user_id:u.id,data:APP,updated_at:new Date().toISOString()},{onConflict:'user_id'});const t=document.getElementById('cloudStatus');if(t)t.textContent=error?'⚠ erro ao salvar na nuvem':'☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
 function saveApp(){localStorage.setItem(KEY,JSON.stringify(APP));cloudSave();}
+function reagruparEntradas(){if(!APP||!APP.perfis)return;APP.perfis.forEach(p=>{(((p.dados)||{}).categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const _n=_normEntradaNome(c.nome);if(ENTRADA_GRUPO_MAP[_n]&&!ENTRADA_GRUPO_EXCLUIR.includes(_n))c.grupo=ENTRADA_GRUPO_MAP[_n];});});}
 function loadApp(){
   const raw=localStorage.getItem(KEY);
   if(raw){try{APP=JSON.parse(raw);}catch(e){APP={perfilAtivo:null,perfis:[]};}}
@@ -1282,9 +1282,8 @@ function loadApp(){
   }
   if(!APP.perfilAtivo||!APP.perfis.find(p=>p.id===APP.perfilAtivo))APP.perfilAtivo=APP.perfis[0].id;
   APP.perfis.forEach(p=>{if(!p.dados.orcamentos)p.dados.orcamentos=[];if(!p.dados.regras)p.dados.regras=[];if(!p.dados.unidades)p.dados.unidades=[];if(!p.dados.bancos)p.dados.bancos=[];if(!p.dados.cartoes)p.dados.cartoes=[];(p.dados.bancos||[]).forEach(b=>{if(b.ativo===undefined)b.ativo=true;if(!b.tipo)b.tipo='Conta corrente';});(p.dados.lancamentos||[]).forEach(l=>{['descricao','cliente','servico','categoria','banco','unidade'].forEach(k=>{if(l[k])l[k]=corrigeMoji(l[k]);});if(!l.cliente&&l.descricao&&l.descricao.indexOf(' — ')>=0){const _p=l.descricao.split(' — ');l.cliente=_p[0].trim();if(!l.servico)l.servico=_p.slice(1).join(' — ').trim();}});if(!p.dados.servicos)p.dados.servicos=[];if(!p.dados.vencimentos)p.dados.vencimentos=[];if(!p.dados.validacoes)p.dados.validacoes=[];if(!p.dados.tags)p.dados.tags=[];if(!p.dados.unidadesTipo)p.dados.unidadesTipo={};if(!p.dados.empresas){const _es=[];const _info=p.dados.unidadesInfo||[];const _cli=p.dados.cliente||{};if(_info.length){_info.forEach(u=>_es.push({id:u.id||id(),unidade:u.nome,tipo:u.tipo||'',razaoSocial:_cli.razaoSocial||p.nome||'',responsavel:_cli.responsavel||'',cnpj:u.cnpj||'',email:u.email||'',telefone:u.telefone||'',logradouro:u.logradouro||'',numero:u.numero||'',complemento:u.complemento||'',cep:u.cep||'',bairro:u.bairro||'',municipio:u.municipio||'',uf:u.uf||'',dataSituacao:u.dataSituacao||''}));}else if(_cli.razaoSocial||_cli.cnpj){_es.push({id:id(),unidade:_cli.razaoSocial||'Matriz',tipo:'Matriz',razaoSocial:_cli.razaoSocial||p.nome||'',responsavel:_cli.responsavel||'',cnpj:_cli.cnpj||'',email:_cli.email||'',telefone:_cli.telefone||'',logradouro:_cli.logradouro||'',numero:_cli.numero||'',complemento:_cli.complemento||'',cep:_cli.cep||'',bairro:_cli.bairro||'',municipio:_cli.municipio||'',uf:_cli.uf||'',dataSituacao:_cli.dataSituacao||''});}p.dados.empresas=_es;}p.dados.unidades=(p.dados.empresas||[]).map(e=>e.unidade).filter(Boolean);p.dados.unidadesTipo={};(p.dados.empresas||[]).forEach(e=>{if(e.unidade)p.dados.unidadesTipo[e.unidade]=e.tipo||'';});if(!p.dados.cliente)p.dados.cliente={razaoSocial:p.nome||'',cnpj:'',responsavel:'',contato:''};if(p.dados.autoConciliar===undefined)p.dados.autoConciliar=true;});
-  // ESTRUTURA de ENTRADAS: reaplicada SEMPRE (idempotente) — assim a separação Serviços/Produtos
-  // não se perde ao importar um backup antigo. Só reclassifica as categorias conhecidas do mapa.
-  APP.perfis.forEach(p=>{(p.dados.categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const _n=_normEntradaNome(c.nome);if(ENTRADA_GRUPO_MAP[_n]&&!ENTRADA_GRUPO_EXCLUIR.includes(_n))c.grupo=ENTRADA_GRUPO_MAP[_n];});});
+  // ESTRUTURA de ENTRADAS: reaplicada SEMPRE (idempotente), inclusive nos dados vindos da nuvem.
+  reagruparEntradas();
   // migração (uma única vez): "Venda de Cartão Zoop" era ambígua (recebimentos via link de cartão OU
   // boleto de vendas a prazo) — vira "Recebimento de Vendas a Prazo – Serviços", e passa a existir
   // também a categoria irmã "…– Produtos".
@@ -1431,13 +1430,13 @@ function render(){
   const coresRec=itensRec.map((i,idx)=>PALETA_REC[idx%PALETA_REC.length]);
   const listaRec=document.getElementById('distListaRec');
   listaRec.innerHTML=itensRec.length?itensRec.map((i,idx)=>{const pp=c.receita>0?i.v/c.receita:0;const cor=coresRec[idx];const larg=Math.min(100,pp*100);
-    return `<div class="dist-item" style="cursor:pointer" onclick="abrirDetalheGrupo('receita','${i.g.replace(/'/g,"\\'")}')"><span class="bola" style="background:${cor}"></span><span class="nome">${i.g}</span><span class="barra"><span style="width:${larg}%;background:${cor}"></span></span><span class="pct">${pct(pp)}</span></div>`;}).join('')
+    return `<div class="dist-item" style="cursor:pointer" onclick="abrirDetalheGrupo('receita','${i.g.replace(/'/g,"\\'")}')"><span class="bola" style="background:${cor}"></span><span class="nome">${LABEL_GRUPO[i.g]||i.g}</span><span class="barra"><span style="width:${larg}%;background:${cor}"></span></span><span class="pct">${pct(pp)}</span></div>`;}).join('')
     :'<div class="mini" style="padding:14px 0">Nenhuma receita cadastrada no período.</div>';
   drawDonut('donutRec',itensRec,coresRec);
   const itens=GRUPOS_DESPESA.map(g=>({g,v:c.porGrupo[g]})).filter(i=>i.v>0).sort((a,b)=>b.v-a.v);
   const lista=document.getElementById('distLista');
   lista.innerHTML=itens.length?itens.map(i=>{const pp=c.receita>0?i.v/c.receita:0;const cor=CORES_GRUPO[i.g];const larg=Math.min(100,c.receita>0?i.v/c.receita*100:0);
-    return `<div class="dist-item" style="cursor:pointer" onclick="abrirDetalheGrupo('despesa','${i.g.replace(/'/g,"\\'")}')"><span class="bola" style="background:${cor}"></span><span class="nome">${i.g}</span><span class="barra"><span style="width:${larg}%;background:${cor}"></span></span><span class="pct">${pct(pp)}</span></div>`;}).join('')
+    return `<div class="dist-item" style="cursor:pointer" onclick="abrirDetalheGrupo('despesa','${i.g.replace(/'/g,"\\'")}')"><span class="bola" style="background:${cor}"></span><span class="nome">${LABEL_GRUPO[i.g]||i.g}</span><span class="barra"><span style="width:${larg}%;background:${cor}"></span></span><span class="pct">${pct(pp)}</span></div>`;}).join('')
     :'<div class="mini" style="padding:14px 0">Nenhuma despesa cadastrada no período.</div>';
   drawDonut('donut',itens,itens.map(i=>CORES_GRUPO[i.g]));
   let lucroMsg;
@@ -1646,7 +1645,7 @@ function tabelaCategoria(tipo){
 function renderRelatorios(){
   renderCardsRelatorios();
   if(!document.getElementById('relDRE'))return;const c=calcular();
-  const grpRows=GRUPOS_DESPESA.map(g=>c.porGrupo[g]>0?`<tr><td style="padding-left:20px">(–) ${g}</td><td style="text-align:right;color:var(--rubro)">${moeda(c.porGrupo[g])}</td></tr>`:'').join('');
+  const grpRows=GRUPOS_DESPESA.map(g=>c.porGrupo[g]>0?`<tr><td style="padding-left:20px">(–) ${LABEL_GRUPO[g]||g}</td><td style="text-align:right;color:var(--rubro)">${moeda(c.porGrupo[g])}</td></tr>`:'').join('');
   document.getElementById('relDRE').innerHTML=`<table><tr><td><b>Receita do período</b></td><td style="text-align:right;font-weight:700;color:var(--verde)">${moeda(c.receita)}</td></tr>${grpRows}<tr><td><b>(=) Total de despesas</b></td><td style="text-align:right;font-weight:700;color:var(--rubro)">${moeda(c.totalDesp)}</td></tr><tr><td><b>(=) Lucro do período</b></td><td style="text-align:right;font-weight:800;color:${c.lucro>=0?'var(--verde)':'var(--rubro)'}">${moeda(c.lucro)}</td></tr><tr><td>Margem líquida</td><td style="text-align:right;font-weight:700">${pct(c.margem)}</td></tr></table>`;
   document.getElementById('relRec').innerHTML=tabelaCategoria('receita');
   document.getElementById('relDesp').innerHTML=tabelaCategoria('despesa');
@@ -1930,6 +1929,11 @@ function renderDemonstrativo(){
   larr('Saldo inicial',sini,false);
   larr('Variação do caixa no mês',varM,false);
   larr('Saldo final',sfim,true);
+  {const _bcs=bancosVisiveis().map(b=>({nome:b.nome,arr:meses.map(m=>{let s=(+b.saldoInicial||0);allM.forEach(mm=>{if(mm<=m)s+=demoLancs().filter(l=>(l.banco||'')===b.nome&&l.data.slice(0,7)===mm).reduce((a,l)=>a+(l.tipo==='receita'?(+l.valor||0):-(+l.valor||0)),0);});return s;})}));
+  const _tot=meses.map((mm,i)=>_bcs.reduce((s,b)=>s+(b.arr[i]||0),0));
+  _gc++;const gc=_gc;let hr=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog);color:var(--vinho);font-weight:700"><td style="text-align:left;padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>SALDO EM CONTA</td>`;const hx=['SALDO EM CONTA'];_tot.forEach(v=>{hr+=`<td style="text-align:right;padding:7px 8px">${moeda(v)}</td><td></td>`;hx.push(v.toFixed(2));hx.push('');});hr+=`<td style="text-align:right;padding:7px 8px">${moeda(_tot[_tot.length-1]||0)}</td></tr>`;hx.push((_tot[_tot.length-1]||0).toFixed(2));html+=hr;aoa.push(hx);
+  _bcs.forEach(b=>{let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px">${b.nome}</td>`;const lx=[b.nome];b.arr.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px">${moeda(b.arr[b.arr.length-1]||0)}</td></tr>`;lx.push((b.arr[b.arr.length-1]||0).toFixed(2));html+=row;aoa.push(lx);});
+  const _nv=meses.map((mm,i)=>(sfim[i]||0)-(_tot[i]||0));if(_nv.some(v=>Math.round(v)!==0)){let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px;color:var(--rubro)">Não vinculado a banco (a conciliar)</td>`;const lx=['Não vinculado a banco'];_nv.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${moeda(_nv[_nv.length-1]||0)}</td></tr>`;lx.push((_nv[_nv.length-1]||0).toFixed(2));html+=row;aoa.push(lx);html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">A diferença é de lançamentos sem banco definido. Edite-os e escolha a conta para o saldo dos bancos bater com o caixa.</td></tr>`;}}
   // ===== RESUMO / VEREDITO =====
   {
     const tOp=resOp.reduce((a,b)=>a+b,0),tNop=meses.reduce((s,m)=>s+totNop(m),0);
@@ -2985,9 +2989,9 @@ async function aposLoginCloud(){
   fecharLogin();
   const remoto=await cloudLoad();
   const temRemoto=!!(remoto&&remoto.perfis&&remoto.perfis.length);
-  if(temRemoto){APP=remoto;}else{loadApp();}
+  if(temRemoto){APP=remoto;reagruparEntradas();}else{loadApp();}
   window._cloudReady=true;
-  if(!temRemoto)cloudSave(true);
+  cloudSave(true);
   initApos();montarBarraNuvem();
 }
 function renderLogin(){
