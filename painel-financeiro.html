@@ -416,6 +416,12 @@
           <button class="menu-item" data-pages="suporte" onclick="irPara('suporte',this)">Suporte</button>
         </div>
       </div>
+      <div class="sb-bloco" id="sbSistema" style="display:none">
+        <button class="sb-grupo" onclick="toggleGrupo(this)">Sistema<span class="sb-seta">⌄</span></button>
+        <div class="sb-itens">
+          <button class="menu-item" id="menuAdmin" onclick="abrirAdmin()">🛡 Admin</button>
+        </div>
+      </div>
     </nav>
   </aside>
   <div class="conteudo">
@@ -1264,10 +1270,19 @@ let sb=null;
 function cloudOn(){return !!(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase);}
 function initSb(){if(!sb&&cloudOn())sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);}
 async function cloudUser(){try{const{data}=await sb.auth.getUser();return data?data.user:null;}catch(e){return null;}}
-async function cloudLoad(){try{const u=await cloudUser();if(!u)return null;const{data,error}=await sb.from('painel').select('data').eq('user_id',u.id).maybeSingle();if(error){console.warn('cloudLoad',error);return null;}return data?data.data:null;}catch(e){console.warn(e);return null;}}
+/* ===== FASE 1 — multi-empresa (tenant = empresa/cliente) ===== */
+let _tenant=null;   // empresa aberta agora
+let _tver=0;        // versão carregada (trava de sobrescrita otimista)
+let _me=null;       // {user_id,email,nome,papel,ativo}
+let _empresas=[];   // empresas que posso abrir
+async function carregarMeu(){try{const u=await cloudUser();if(!u)return null;const{data}=await sb.from('app_users').select('user_id,email,nome,papel,ativo').eq('user_id',u.id).maybeSingle();_me=data||{user_id:u.id,email:u.email,nome:u.email,papel:'operador',ativo:true};return _me;}catch(e){console.warn(e);return null;}}
+async function carregarMinhasEmpresas(){try{const{data,error}=await sb.rpc('listar_minhas_empresas');if(error){console.warn(error);return[];}return data||[];}catch(e){console.warn(e);return[];}}
+async function abrirEmpresa(tid){try{const{data,error}=await sb.from('tenant_data').select('data,version').eq('tenant_id',tid).maybeSingle();if(error){alert('Não consegui abrir a empresa: '+error.message);return false;}_tenant=tid;_tver=data?data.version:0;APP=(data&&data.data&&data.data.perfis)?data.data:{perfilAtivo:null,perfis:[]};if(!APP.perfis||!APP.perfis.length){const p=novoPerfilObj('Nova empresa','');APP.perfis=[p];APP.perfilAtivo=p.id;}normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();cloudSave(true);return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
 let _cloudT=null;
-function cloudSave(now){if(!cloudOn()||!window._cloudReady)return;clearTimeout(_cloudT);const go=async()=>{try{const u=await cloudUser();if(!u)return;const{error}=await sb.from('painel').upsert({user_id:u.id,data:APP,updated_at:new Date().toISOString()},{onConflict:'user_id'});const t=document.getElementById('cloudStatus');if(t)t.textContent=error?'⚠ erro ao salvar na nuvem':'☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
-function saveApp(){localStorage.setItem(KEY,JSON.stringify(APP));cloudSave();}
+function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;clearTimeout(_cloudT);const go=async()=>{const t=document.getElementById('cloudStatus');try{const{data,error}=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});if(error){if(t)t.textContent='⚠ erro ao salvar';console.warn(error);return;}if(data===-1){if(t)t.textContent='⚠ salvo por outra pessoa';avisarConflito();return;}_tver=data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
+function saveApp(){if(_tenant){try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}cloudSave();}
+let _conflitoAberto=false;
+async function avisarConflito(){if(_conflitoAberto)return;_conflitoAberto=true;const ok=confirm('Esta empresa foi salva por outra pessoa (ou em outra aba) depois que você abriu.\n\nPara NÃO sobrescrever o trabalho dela, vou recarregar a versão mais recente. Alterações não salvas desta tela serão perdidas.\n\nOK = recarregar a versão mais recente.');_conflitoAberto=false;if(ok&&_tenant){await abrirEmpresa(_tenant);if(typeof render==='function')render();}}
 function reagruparEntradas(){if(!APP||!APP.perfis)return;APP.perfis.forEach(p=>{(((p.dados)||{}).categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const _n=_normEntradaNome(c.nome);if(ENTRADA_GRUPO_MAP[_n]&&!ENTRADA_GRUPO_EXCLUIR.includes(_n))c.grupo=ENTRADA_GRUPO_MAP[_n];});});}
 function loadApp(){
   const raw=localStorage.getItem(KEY);
@@ -1280,6 +1295,10 @@ function loadApp(){
     if(old){try{const d=JSON.parse(old);if(d.lancamentos)p.dados.lancamentos=d.lancamentos;if(d.categorias&&d.categorias.length)p.dados.categorias=d.categorias;if(!d.orcamentos)p.dados.orcamentos=[];}catch(e){}}
     APP.perfis=[p];APP.perfilAtivo=p.id;saveApp();
   }
+  normalizarPerfis();
+}
+function normalizarPerfis(){
+  if(!APP.perfis||!APP.perfis.length)return;
   if(!APP.perfilAtivo||!APP.perfis.find(p=>p.id===APP.perfilAtivo))APP.perfilAtivo=APP.perfis[0].id;
   APP.perfis.forEach(p=>{if(!p.dados.orcamentos)p.dados.orcamentos=[];if(!p.dados.regras)p.dados.regras=[];if(!p.dados.unidades)p.dados.unidades=[];if(!p.dados.bancos)p.dados.bancos=[];if(!p.dados.cartoes)p.dados.cartoes=[];(p.dados.bancos||[]).forEach(b=>{if(b.ativo===undefined)b.ativo=true;if(!b.tipo)b.tipo='Conta corrente';});(p.dados.lancamentos||[]).forEach(l=>{['descricao','cliente','servico','categoria','banco','unidade'].forEach(k=>{if(l[k])l[k]=corrigeMoji(l[k]);});if(!l.cliente&&l.descricao&&l.descricao.indexOf(' — ')>=0){const _p=l.descricao.split(' — ');l.cliente=_p[0].trim();if(!l.servico)l.servico=_p.slice(1).join(' — ').trim();}});if(!p.dados.servicos)p.dados.servicos=[];if(!p.dados.vencimentos)p.dados.vencimentos=[];if(!p.dados.validacoes)p.dados.validacoes=[];if(!p.dados.tags)p.dados.tags=[];if(!p.dados.unidadesTipo)p.dados.unidadesTipo={};if(!p.dados.empresas){const _es=[];const _info=p.dados.unidadesInfo||[];const _cli=p.dados.cliente||{};if(_info.length){_info.forEach(u=>_es.push({id:u.id||id(),unidade:u.nome,tipo:u.tipo||'',razaoSocial:_cli.razaoSocial||p.nome||'',responsavel:_cli.responsavel||'',cnpj:u.cnpj||'',email:u.email||'',telefone:u.telefone||'',logradouro:u.logradouro||'',numero:u.numero||'',complemento:u.complemento||'',cep:u.cep||'',bairro:u.bairro||'',municipio:u.municipio||'',uf:u.uf||'',dataSituacao:u.dataSituacao||''}));}else if(_cli.razaoSocial||_cli.cnpj){_es.push({id:id(),unidade:_cli.razaoSocial||'Matriz',tipo:'Matriz',razaoSocial:_cli.razaoSocial||p.nome||'',responsavel:_cli.responsavel||'',cnpj:_cli.cnpj||'',email:_cli.email||'',telefone:_cli.telefone||'',logradouro:_cli.logradouro||'',numero:_cli.numero||'',complemento:_cli.complemento||'',cep:_cli.cep||'',bairro:_cli.bairro||'',municipio:_cli.municipio||'',uf:_cli.uf||'',dataSituacao:_cli.dataSituacao||''});}p.dados.empresas=_es;}p.dados.unidades=(p.dados.empresas||[]).map(e=>e.unidade).filter(Boolean);p.dados.unidadesTipo={};(p.dados.empresas||[]).forEach(e=>{if(e.unidade)p.dados.unidadesTipo[e.unidade]=e.tipo||'';});if(!p.dados.cliente)p.dados.cliente={razaoSocial:p.nome||'',cnpj:'',responsavel:'',contato:''};if(p.dados.autoConciliar===undefined)p.dados.autoConciliar=true;});
   // ESTRUTURA de ENTRADAS: reaplicada SEMPRE (idempotente), inclusive nos dados vindos da nuvem.
@@ -2987,12 +3006,11 @@ async function boot(){
 }
 async function aposLoginCloud(){
   fecharLogin();
-  const remoto=await cloudLoad();
-  const temRemoto=!!(remoto&&remoto.perfis&&remoto.perfis.length);
-  if(temRemoto){APP=remoto;reagruparEntradas();}else{loadApp();}
-  window._cloudReady=true;
-  cloudSave(true);
-  initApos();montarBarraNuvem();
+  await carregarMeu();
+  if(_me&&_me.ativo===false){alert('Seu acesso está bloqueado. Fale com a administradora.');try{await sb.auth.signOut();}catch(e){}location.reload();return;}
+  _empresas=await carregarMinhasEmpresas();
+  if(_empresas.length===1){await abrirEmpresa(_empresas[0].tenant_id);}
+  else{renderSeletor();}
 }
 function renderLogin(){
   if(document.getElementById('loginOverlay'))return;
@@ -3010,16 +3028,135 @@ function renderLogin(){
     <div id="lgMsg" style="font-size:12px;color:#f2b8b8;min-height:16px;margin:8px 0;text-align:center"></div>
     <button onclick="fazerLogin()" style="width:100%;background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;letter-spacing:.3px">Entrar</button>
     <div onclick="resetSenha()" style="color:#cfe0e6;font-size:12px;margin:14px 0;cursor:pointer">Esqueci a senha</div>
-    <button onclick="criarConta()" style="width:100%;background:none;border:1px solid rgba(193,146,47,.5);color:#d9ab44;padding:12px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.5px">SOLICITAR ACESSO</button>
+    <div style="font-size:11px;color:#9fb4bc;margin-top:6px;line-height:1.5">O acesso é liberado pela administradora.<br>Sem conta? Fale com quem administra o painel.</div>
   </div>`;
   document.body.appendChild(d);
 }
 async function resetSenha(){const e=(document.getElementById('lgEmail').value||'').trim();const m=document.getElementById('lgMsg');if(!e){m.style.color='#f2b8b8';m.textContent='Informe o e-mail para receber o link de redefinição.';return;}try{const{error}=await sb.auth.resetPasswordForEmail(e);m.style.color=error?'#f2b8b8':'#bfe6c9';m.textContent=error?('Erro: '+error.message):'Enviamos um link de redefinição para o seu e-mail.';}catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}}
 function fecharLogin(){const o=document.getElementById('loginOverlay');if(o)o.remove();}
 async function fazerLogin(){const e=(document.getElementById('lgEmail').value||'').trim(),p=document.getElementById('lgSenha').value||'';const m=document.getElementById('lgMsg');m.style.color='#b23b3b';m.textContent='Entrando...';try{const{error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){m.textContent='Não consegui entrar: '+error.message;return;}aposLoginCloud();}catch(x){m.textContent='Erro: '+x.message;}}
-async function criarConta(){const e=(document.getElementById('lgEmail').value||'').trim(),p=document.getElementById('lgSenha').value||'';const m=document.getElementById('lgMsg');if(!e||p.length<6){m.style.color='#b23b3b';m.textContent='Informe e-mail e senha de 6+ caracteres.';return;}m.style.color='#8f8073';m.textContent='Criando...';try{const{error}=await sb.auth.signUp({email:e,password:p});if(error){m.style.color='#b23b3b';m.textContent='Não consegui criar: '+error.message;return;}m.style.color='#2e7d46';m.textContent='Conta criada. Se pedir confirmação por e-mail, confirme e clique Entrar.';}catch(x){m.style.color='#b23b3b';m.textContent='Erro: '+x.message;}}
 async function sairNuvem(){try{await sb.auth.signOut();}catch(e){}location.reload();}
-function montarBarraNuvem(){const bar=document.querySelector('.tb-acoes');if(!bar||document.getElementById('cloudStatus'))return;const s=document.createElement('span');s.id='cloudStatus';s.style.cssText='font-size:11px;color:#8f8073;margin-right:6px';s.textContent='☁ nuvem';bar.appendChild(s);const b=document.createElement('button');b.className='btn peq sec';b.textContent='Sair';b.onclick=sairNuvem;bar.appendChild(b);}
+function montarBarraNuvem(){const bar=document.querySelector('.tb-acoes');if(!bar)return;
+  let s=document.getElementById('cloudStatus');
+  if(!s){s=document.createElement('span');s.id='cloudStatus';s.style.cssText='font-size:11px;color:#8f8073;margin-right:6px';bar.appendChild(s);}
+  const nomeEmp=((_empresas.find(e=>e.tenant_id===_tenant)||{}).nome)||'';
+  s.textContent='☁ '+(nomeEmp?nomeEmp+' · ':'')+'nuvem';
+  const sis=document.getElementById('sbSistema');if(sis)sis.style.display=(_me&&_me.papel==='master')?'':'none';
+  if(document.getElementById('btnBarSair'))return;
+  const mk=(txt,fn)=>{const b=document.createElement('button');b.className='btn peq sec';b.textContent=txt;b.onclick=fn;bar.appendChild(b);return b;};
+  mk('Trocar empresa',trocarEmpresa);
+  mk('Sair',sairNuvem).id='btnBarSair';
+}
+async function trocarEmpresa(){window._cloudReady=false;_tenant=null;_empresas=await carregarMinhasEmpresas();renderSeletor();}
+
+/* ===================== SELETOR DE EMPRESA ===================== */
+function fecharSeletor(){const o=document.getElementById('seletorOverlay');if(o)o.remove();}
+function renderSeletor(){
+  fecharSeletor();
+  const master=_me&&_me.papel==='master';
+  const cards=_empresas.map(e=>`<button onclick="abrirEmpresa('${e.tenant_id}')" style="display:block;width:100%;text-align:left;background:#eef4f5;border:1px solid rgba(193,146,47,.35);border-radius:14px;padding:15px 17px;margin:8px 0;cursor:pointer;color:#143b4d">
+      <div style="font-weight:800;font-size:16px">${(e.nome||'—').replace(/</g,'&lt;')}</div>
+      <div style="font-size:12px;color:#5b7480;margin-top:2px">${e.atualizado_em?('atualizado '+new Date(e.atualizado_em).toLocaleDateString('pt-BR')):'nova'} · ${e.papel}</div>
+    </button>`).join('') || `<div style="color:#cfe0e6;font-size:13px;padding:10px 0">${master?'Nenhuma empresa ainda. Crie a primeira abaixo.':'Você ainda não tem acesso a nenhuma empresa. Peça à administradora para liberar.'}</div>`;
+  const d=document.createElement('div');d.id='seletorOverlay';
+  d.style.cssText="position:fixed;inset:0;z-index:200;background:radial-gradient(circle at 30% 15%,#1c4d61,#0e2833 72%);display:flex;align-items:center;justify-content:center;padding:22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  d.innerHTML=`<div style="background:rgba(20,59,77,.6);backdrop-filter:blur(9px);border:1px solid rgba(193,146,47,.32);border-radius:22px;max-width:460px;width:100%;padding:32px 28px;box-shadow:0 30px 80px -28px rgba(0,0,0,.7)">
+    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;font-weight:700">Escolha a empresa</div>
+    <div style="font-size:12px;color:#cfe0e6;margin:4px 0 16px">Olá, ${((_me&&(_me.nome||_me.email))||'').replace(/</g,'&lt;')}. Selecione onde vai trabalhar.</div>
+    <div style="max-height:46vh;overflow:auto">${cards}</div>
+    ${master?`<button onclick="adminNovaEmpresa()" style="width:100%;margin-top:12px;background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:12px;border-radius:12px;font-weight:800;cursor:pointer">＋ Nova empresa</button>
+      <button onclick="abrirAdmin()" style="width:100%;margin-top:8px;background:none;border:1px solid rgba(193,146,47,.5);color:#d9ab44;padding:11px;border-radius:12px;font-weight:700;cursor:pointer">Gerenciar contas e acessos</button>`:''}
+    <div onclick="sairNuvem()" style="text-align:center;color:#cfe0e6;font-size:12px;margin-top:14px;cursor:pointer">Sair</div>
+  </div>`;
+  document.body.appendChild(d);
+}
+async function adminNovaEmpresa(){
+  const nome=prompt('Nome da nova empresa/cliente:');if(!nome||!nome.trim())return;
+  const{data,error}=await sb.rpc('admin_criar_empresa',{p_nome:nome.trim()});
+  if(error){alert('Não consegui criar: '+error.message);return;}
+  _empresas=await carregarMinhasEmpresas();await abrirEmpresa(data);
+}
+
+/* ===================== PAINEL ADMIN (só master) ===================== */
+function fecharAdmin(){const o=document.getElementById('adminOverlay');if(o)o.remove();}
+async function abrirAdmin(){
+  if(!(_me&&_me.papel==='master')){alert('Apenas a administradora.');return;}
+  const[us,em]=await Promise.all([sb.rpc('admin_listar_usuarios'),sb.rpc('admin_listar_empresas')]);
+  if(us.error){alert('Erro: '+us.error.message);return;}
+  const usuarios=us.data||[],empresas=(em.data||[]);
+  const masters=usuarios.filter(u=>u.papel==='master').length,ops=usuarios.length-masters;
+  const optsEmp=empresas.map(e=>`<option value="${e.tenant_id}">${(e.nome||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')}</option>`).join('');
+  const rows=usuarios.map(u=>`<tr>
+     <td><strong>${(u.nome||'—').replace(/</g,'&lt;')}</strong><br><span style="font-size:.75rem;color:#96847d">${(u.email||'').replace(/</g,'&lt;')}</span></td>
+     <td>${u.papel==='master'?'<span class="ab-badge ab-ok">Master</span>':'<span class="ab-badge ab-op">Operadora</span>'}</td>
+     <td>${u.ativo?'<span class="ab-badge ab-ok">Ativa</span>':'<span class="ab-badge ab-bl">Bloqueada</span>'}</td>
+     <td style="font-size:.78rem;color:#5b4a38">${(u.empresas||'—').replace(/</g,'&lt;')}</td>
+     <td style="white-space:nowrap">
+       <select onchange="admDarAcesso('${u.user_id}',this.value);this.selectedIndex=0" class="ab-mini"><option value="">+ acesso a empresa…</option>${optsEmp}</select>
+       <button class="ab-act ab-reset" onclick="admTogglePapel('${u.user_id}','${u.papel}')">${u.papel==='master'?'→ operadora':'→ master'}</button>
+       <button class="ab-act ${u.ativo?'ab-block':'ab-approve'}" onclick="admToggleAtivo('${u.user_id}',${u.ativo?'false':'true'})">${u.ativo?'Bloquear':'Ativar'}</button>
+     </td></tr>`).join('');
+  const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${e.atualizado_em?new Date(e.atualizado_em).toLocaleDateString('pt-BR'):'—'}</td><td><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button></td></tr>`).join('');
+  const d=document.createElement('div');d.id='adminOverlay';
+  d.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(14,40,51,.55);backdrop-filter:blur(4px);overflow:auto;padding:26px;font-family:'DM Sans',-apple-system,'Segoe UI',Arial,sans-serif";
+  d.innerHTML=`<style>
+    #adminOverlay .ab-wrap{max-width:1100px;margin:0 auto;background:#FAF7F2;border-radius:18px;padding:24px 26px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
+    #adminOverlay h2{font-family:Georgia,serif;color:#143b4d;font-size:1.5rem;margin:0}
+    #adminOverlay .ab-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E8E2D8;padding-bottom:14px;margin-bottom:18px}
+    #adminOverlay .ab-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#96847d}
+    #adminOverlay .ab-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px}
+    #adminOverlay .ab-card{background:#fff;border:1px solid #E8E2D8;border-radius:12px;padding:14px;text-align:center}
+    #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d}
+    #adminOverlay .ab-card .l{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#96847d;margin-top:3px}
+    #adminOverlay .ab-box{background:#fff;border:1px solid #E8E2D8;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+    #adminOverlay .ab-box .t{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#96847d;margin-bottom:8px}
+    #adminOverlay input,#adminOverlay .ab-search{padding:.55rem .8rem;border:1.5px solid #E8E2D8;border-radius:8px;font-size:.85rem;color:#143b4d;outline:none;font-family:inherit}
+    #adminOverlay input:focus{border-color:#c1922f}
+    #adminOverlay .ab-search{width:100%;margin-bottom:12px}
+    #adminOverlay table{width:100%;background:#fff;border:1px solid #E8E2D8;border-radius:12px;border-collapse:collapse;overflow:hidden;margin-bottom:6px}
+    #adminOverlay thead{background:#143b4d;color:#fff}
+    #adminOverlay th{padding:.75rem .8rem;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    #adminOverlay td{padding:.7rem .8rem;border-top:1px solid #F0EBE3;font-size:.85rem;color:#5b4a38;vertical-align:middle}
+    #adminOverlay tbody tr:hover{background:#F2EDE5}
+    #adminOverlay .ab-badge{display:inline-block;padding:.22rem .55rem;border-radius:99px;font-size:.62rem;font-weight:700;text-transform:uppercase}
+    #adminOverlay .ab-ok{background:#D1FAE5;color:#059669}#adminOverlay .ab-op{background:#e6dff5;color:#5A45A0}#adminOverlay .ab-bl{background:#FEE2E2;color:#DC2626}
+    #adminOverlay .ab-act{padding:.3rem .55rem;border:none;border-radius:5px;font-size:.68rem;font-weight:600;cursor:pointer;margin-left:.25rem}
+    #adminOverlay .ab-reset{background:#DBEAFE;color:#2563EB}#adminOverlay .ab-block{background:#FEF3C7;color:#D97706}#adminOverlay .ab-approve{background:#D1FAE5;color:#059669}
+    #adminOverlay .ab-mini{padding:.3rem;border:1px solid #E8E2D8;border-radius:5px;font-size:.7rem;color:#143b4d}
+    #adminOverlay .ab-primary{background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:.55rem 1rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:.8rem}
+  </style>
+  <div class="ab-wrap">
+    <div class="ab-head"><h2>Contas & Acessos</h2><button class="ab-x" onclick="fecharAdmin()">✕</button></div>
+    <div class="ab-stats">
+      <div class="ab-card"><div class="n">${usuarios.length}</div><div class="l">Usuárias</div></div>
+      <div class="ab-card"><div class="n" style="color:#5A45A0">${masters}</div><div class="l">Master</div></div>
+      <div class="ab-card"><div class="n">${ops}</div><div class="l">Operadoras</div></div>
+      <div class="ab-card"><div class="n">${empresas.length}</div><div class="l">Empresas</div></div>
+    </div>
+    <div class="ab-box"><div class="t">Vincular um login já criado no Supabase</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="admEmail" type="email" placeholder="e-mail do login" style="flex:1;min-width:200px">
+        <input id="admNome" type="text" placeholder="nome (ex.: Márcia)" style="flex:1;min-width:160px">
+        <button class="ab-primary" onclick="admVincular()">Vincular</button>
+      </div>
+      <div style="font-size:.72rem;color:#96847d;margin-top:6px">Crie o login antes em <strong>Supabase → Authentication → Add user</strong>. Depois vincule aqui e dê acesso à(s) empresa(s) na tabela abaixo.</div>
+    </div>
+    <input class="ab-search" id="admSearch" placeholder="Buscar por nome ou e-mail..." oninput="admFiltrar()">
+    <table><thead><tr><th>Usuária</th><th>Papel</th><th>Status</th><th>Empresas com acesso</th><th>Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=5 style="text-align:center;color:#96847d;padding:1.4rem">Nenhuma usuária vinculada ainda.</td></tr>'}</tbody></table>
+    <div class="ab-box" style="margin-top:18px"><div class="t">Empresas</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px"><input id="admNovaEmp" type="text" placeholder="nome da nova empresa" style="flex:1"><button class="ab-primary" onclick="admCriarEmpresa()">＋ Criar</button></div>
+      <table><thead><tr><th>Empresa</th><th>Acessos</th><th>Atualizada</th><th>Ações</th></tr></thead><tbody>${empRows||''}</tbody></table>
+    </div>
+  </div>`;
+  document.body.appendChild(d);
+}
+function admFiltrar(){const q=(document.getElementById('admSearch').value||'').toLowerCase();document.querySelectorAll('#admRows tr').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});}
+async function admVincular(){const e=(document.getElementById('admEmail').value||'').trim(),n=(document.getElementById('admNome').value||'').trim();if(!e){alert('Informe o e-mail do login criado no Supabase.');return;}const{error}=await sb.rpc('admin_vincular_usuario',{p_email:e,p_nome:n||e,p_papel:'operador'});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
+async function admDarAcesso(uid,tid){if(!tid)return;const{error}=await sb.rpc('admin_dar_acesso',{p_user:uid,p_tenant:tid,p_papel:'editor'});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
+async function admTogglePapel(uid,atual){const novo=atual==='master'?'operador':'master';if(!confirm('Mudar o papel desta usuária para '+(novo==='master'?'MASTER (vê tudo)':'operadora')+'?'))return;const{error}=await sb.rpc('admin_set_papel',{p_user:uid,p_papel:novo});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
+async function admToggleAtivo(uid,ativo){const{error}=await sb.rpc('admin_set_ativo',{p_user:uid,p_ativo:ativo});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
+async function admRenomear(tid){const nome=prompt('Novo nome da empresa:');if(!nome||!nome.trim())return;const{error}=await sb.rpc('admin_renomear_empresa',{p_tenant:tid,p_nome:nome.trim()});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
+async function admCriarEmpresa(){const n=(document.getElementById('admNovaEmp').value||'').trim();if(!n)return;const{error}=await sb.rpc('admin_criar_empresa',{p_nome:n});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
 boot();
 /* fim */
 </script>
