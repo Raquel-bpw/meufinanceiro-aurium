@@ -737,7 +737,7 @@
       </div>
       <div id="lancResumo" class="lanc-resumo"></div>
       <div class="mini" style="margin:2px 0 12px;color:var(--suave)"><span style="color:var(--verde);font-weight:700">✓ classificado</span> = já tem categoria &nbsp;·&nbsp; <span style="color:var(--ouro);font-weight:700">a classificar</span> = falta definir a categoria (use "Filtrar → A classificar" e clique no lápis para ajustar).</div>
-      <div style="overflow-x:auto"><table id="tabela"><thead><tr><th>Data</th><th>Cliente</th><th>Descrição (serviço)</th><th>Categoria</th><th>Tipo</th><th>Situação</th><th style="text-align:right">Valor</th><th>Criado por</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+      <div style="overflow-x:auto"><table id="tabela"><thead><tr><th>Data</th><th>Cliente / Fornecedor</th><th>Categoria</th><th>Descrição</th><th>Situação</th><th>Banco</th><th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
       <div id="tabelaVazia" class="vazio" style="display:none">Nenhum lançamento ainda. Cadastre o primeiro acima ou importe um extrato.</div>
       <div id="tabelaCapNota" class="mini" style="display:none;margin-top:8px;color:var(--suave)">mostrando os 200 mais recentes — use a busca para achar outros</div>
     </div>
@@ -2279,7 +2279,8 @@ function renderTabela(){
   document.getElementById('tabelaVazia').style.display=arr.length?'none':'block';
   const notaCap=document.getElementById('tabelaCapNota');if(notaCap)notaCap.style.display=capado?'block':'none';
   document.getElementById('tbody').innerHTML=arr.map(l=>{const dataFmt=l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-';
-    return `<tr><td>${dataFmt}</td><td class="mini">${l.cliente||'-'}</td><td>${l.servico||l.descricao||'-'}${ehEstorno(l)?' <span class="pill warn">↩️ Estorno</span>':''}</td><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${CORES_GRUPO[grupoDaCategoria(l.categoria)]}"></span>${l.categoria||'-'}</span></td><td><span class="pill ${l.tipo==='receita'?'rec':'desp'}">${l.tipo==='receita'?'Entrada':'Saída'}</span></td><td class="mini">${ehAClassificar(l)?'<span class="pill warn">🔶 A classificar</span>':(l.status==='previsto'?'⏳ Previsto':'✓ Realizado')}</td><td style="text-align:right;font-weight:700;color:${l.tipo==='receita'?'var(--verde)':'var(--rubro)'}">${moeda(l.valor)}</td><td class="mini">${l.usuario||'-'}</td><td style="text-align:right;white-space:nowrap"><button class="btn-ico" onclick="copiarLanc('${l.id}')" title="Copiar para editar">📋</button><button class="btn-ico" onclick="editarLanc('${l.id}')" title="Editar">✏️</button>${!ehEstorno(l)?`<button class="btn-ico" onclick="estornarLanc('${l.id}')" title="Estornar (gerar lançamento inverso)">↩️</button>`:''}<button class="btn-ico" onclick="excluirLanc('${l.id}')" title="Excluir">🗑️</button></td></tr>`;}).join('');
+    const _ent=l.tipo==='receita', _v=moeda(l.valor);
+    return `<tr><td>${dataFmt}</td><td class="mini">${l.cliente||'-'}</td><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${CORES_GRUPO[grupoDaCategoria(l.categoria)]}"></span>${l.categoria||'-'}</span></td><td>${l.servico||l.descricao||'-'}${ehEstorno(l)?' <span class="pill warn">↩️ Estorno</span>':''}</td><td class="mini">${ehAClassificar(l)?'<span class="pill warn">🔶 A classificar</span>':(l.status==='previsto'?'⏳ Previsto':'✓ Realizado')}</td><td class="mini">${l.banco||'-'}</td><td style="text-align:right;font-weight:700;color:var(--verde);font-variant-numeric:tabular-nums">${_ent?_v:''}</td><td style="text-align:right;font-weight:700;color:var(--rubro);font-variant-numeric:tabular-nums">${_ent?'':_v}</td><td style="text-align:right;white-space:nowrap"><button class="btn-ico" onclick="copiarLanc('${l.id}')" title="Copiar para editar">📋</button><button class="btn-ico" onclick="editarLanc('${l.id}')" title="Editar">✏️</button>${!ehEstorno(l)?`<button class="btn-ico" onclick="estornarLanc('${l.id}')" title="Estornar (gerar lançamento inverso)">↩️</button>`:''}<button class="btn-ico" onclick="excluirLanc('${l.id}')" title="Excluir">🗑️</button></td></tr>`;}).join('');
 }
 function ehAClassificar(l){return (l.categoria||'')==='A classificar'||!l.categoria;}
 function renderResumoClassificar(){const box=document.getElementById('resumoClassificar');if(!box)return;const arr=dados().lancamentos.filter(l=>visivel(l)&&ehAClassificar(l));if(!arr.length){box.innerHTML='';return;}const rec=arr.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0);const desp=arr.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);box.innerHTML=`<div class="card" style="border-left:4px solid var(--ouro)"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><h2 style="margin:0">🔶 A classificar</h2><div class="cap"><b>${arr.length}</b> lançamento(s) importado(s) sem categoria — entradas ${moeda(rec)} · saídas ${moeda(desp)}. Trate para fechar a diferença de saldo.</div></div><button class="btn ouro" onclick="verAClassificar()">Ver a classificar</button></div></div>`;}
@@ -2468,7 +2469,10 @@ function abrirServico(sid){const ss=dados().servicos||[];const s=sid?ss.find(x=>
 function salvarServico(){const g=i=>{const e=document.getElementById(i);return e?e.value.trim():'';};const nome=g('sNome');if(!nome){alert('Informe o nome do serviço.');return;}dados().servicos=dados().servicos||[];const sid=window._editServId;const rec={nome,tipo:g('sTipo'),categoria:g('sCat'),pai:g('sPai')};
   if(sid){const s=dados().servicos.find(x=>x.id===sid);if(s)Object.assign(s,rec);}else{rec.id=id();dados().servicos.push(rec);}
   saveApp();fecharModal();render();renderServicos();}
-function excluirServico(sid){const filhos=(dados().servicos||[]).filter(x=>x.pai===sid).length;if(filhos){if(!confirm('Este serviço tem '+filhos+' filho(s). Excluir mesmo assim? Os filhos ficam sem pai.'))return;dados().servicos.forEach(x=>{if(x.pai===sid)x.pai='';});}else{if(!confirm('Excluir este serviço?'))return;}dados().servicos=(dados().servicos||[]).filter(x=>x.id!==sid);saveApp();render();renderServicos();}
+function excluirServico(sid){const _s=(dados().servicos||[]).find(x=>x.id===sid);
+  if(_s){const uso=(dados().lancamentos||[]).filter(l=>(l.servico||'')===_s.nome).length;
+    if(_travaExclusao(uso,'O serviço "'+_s.nome+'"','Troque o serviço desses lançamentos primeiro.'))return;}
+  const filhos=(dados().servicos||[]).filter(x=>x.pai===sid).length;if(filhos){if(!confirm('Este serviço tem '+filhos+' filho(s). Excluir mesmo assim? Os filhos ficam sem pai.'))return;dados().servicos.forEach(x=>{if(x.pai===sid)x.pai='';});}else{if(!confirm('Excluir este serviço?'))return;}dados().servicos=(dados().servicos||[]).filter(x=>x.id!==sid);saveApp();render();renderServicos();}
 function renderServicos(){const box=document.getElementById('servicosLista');if(!box)return;const ss=dados().servicos||[];const z=document.getElementById('servicosVazio');if(z)z.style.display=ss.length?'none':'block';if(!ss.length){box.innerHTML='';return;}
   const pais=ss.filter(s=>!s.pai);
   const filhoLinha=f=>`<div class="cat-linha" style="padding-left:22px"><span class="cat-nome">${f.nome}${f.tipo&&f.tipo!=='Serviço'?` <span class="pill">${f.tipo}</span>`:''}${f.categoria?` <span class=mini style="color:var(--suave)">· ${f.categoria}</span>`:''}</span><button class="btn sec peq" onclick="abrirServico('${f.id}')">Editar</button> <button class="btn-ico" onclick="excluirServico('${f.id}')">🗑️</button></div>`;
@@ -2708,7 +2712,11 @@ function setUsuariaAtiva(){APP.usuariaAtiva=document.getElementById('seletorUsua
 function salvarUsuaria(){const nome=document.getElementById('usNome').value.trim();if(!nome){alert('Informe o nome da usuária.');return;}const u={id:id(),nome};APP.usuarias.push(u);if(!APP.usuariaAtiva)APP.usuariaAtiva=u.id;saveApp();document.getElementById('usNome').value='';renderUsuarias();montarSeletorUsuaria();}
 function ativarUsuaria(uid){const u=(APP.usuarias||[]).find(x=>x.id===uid);if(u&&u.status==='bloqueada'){alert('Esta usuária está bloqueada. Desbloqueie antes de usar.');return;}APP.usuariaAtiva=uid;saveApp();renderUsuarias();montarSeletorUsuaria();}
 function bloquearUsuaria(uid){const u=(APP.usuarias||[]).find(x=>x.id===uid);if(!u)return;u.status=u.status==='bloqueada'?'ativa':'bloqueada';if(u.status==='bloqueada'&&APP.usuariaAtiva===uid){const outra=APP.usuarias.find(x=>x.id!==uid&&x.status!=='bloqueada');if(outra)APP.usuariaAtiva=outra.id;}saveApp();renderUsuarias();montarSeletorUsuaria();}
-function excluirUsuaria(uid){if((APP.usuarias||[]).length<=1){alert('É preciso ter pelo menos uma usuária.');return;}if(!confirm('Excluir esta usuária? Os lançamentos já registrados mantêm o nome de quem os criou.'))return;APP.usuarias=APP.usuarias.filter(u=>u.id!==uid);if(APP.usuariaAtiva===uid)APP.usuariaAtiva=APP.usuarias[0].id;saveApp();renderUsuarias();montarSeletorUsuaria();}
+function excluirUsuaria(uid){if((APP.usuarias||[]).length<=1){alert('É preciso ter pelo menos uma usuária.');return;}
+  const _u=(APP.usuarias||[]).find(x=>x.id===uid);
+  if(_u){const uso=(dados().lancamentos||[]).filter(l=>(l.usuario||'')===_u.nome).length;
+    if(_travaExclusao(uso,'A usuária "'+_u.nome+'"','Ela é a autora desses lançamentos. Bloqueie o acesso dela em vez de excluir o cadastro.'))return;}
+  if(!confirm('Excluir esta usuária?'))return;APP.usuarias=APP.usuarias.filter(u=>u.id!==uid);if(APP.usuariaAtiva===uid)APP.usuariaAtiva=APP.usuarias[0].id;saveApp();renderUsuarias();montarSeletorUsuaria();}
 function renderUsuarias(){const tb=document.getElementById('tbodyUsuarias');if(!tb)return;const us=APP.usuarias||[];document.getElementById('usuariasVazio').style.display=us.length?'none':'block';
   tb.innerHTML=us.map(u=>{const ativa=u.id===APP.usuariaAtiva;const bloq=u.status==='bloqueada';
     return `<tr><td><b>${u.nome}</b></td><td>${bloq?'<span class="pill bad">Bloqueada</span>':(ativa?'<span class="pill ok">Em uso</span>':'<span class="mini">Ativa</span>')}</td><td style="text-align:right;white-space:nowrap">${(!ativa&&!bloq)?`<button class="btn sec peq" onclick="ativarUsuaria('${u.id}')">Usar</button> `:''}<button class="btn sec peq" onclick="bloquearUsuaria('${u.id}')">${bloq?'Desbloquear':'Bloquear'}</button> <button class="btn-ico" onclick="excluirUsuaria('${u.id}')">🗑️</button></td></tr>`;}).join('');}
@@ -2830,7 +2838,10 @@ function salvarEmpresa(){const g=i=>{const el=document.getElementById(i);return 
 function visualizarEmpresa(eid){const e=(dados().empresas||[]).find(x=>x.id===eid);if(!e)return;const lin=(r,val)=>val?`<div style="display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--borda)"><span class=mini>${r}</span><b style="text-align:right">${val}</b></div>`:'';const end=[e.logradouro,e.numero,e.complemento].filter(Boolean).join(', ');const cid=[e.bairro,e.municipio,e.uf].filter(Boolean).join(' · ');
   document.getElementById('modalConteudo').innerHTML=`<h3>${e.unidade}${e.tipo?' · '+e.tipo:''}</h3><div style="margin-top:6px">${lin('Razão social',e.razaoSocial)}${lin('CNPJ',e.cnpj)}${lin('Responsável',e.responsavel)}${lin('E-mail',e.email)}${lin('Telefone',e.telefone)}${lin('Endereço',end)}${lin('Bairro / cidade',cid)}${lin('CEP',e.cep)}${lin('Data da situação',e.dataSituacao)}</div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button><button class="btn" onclick="abrirEmpresa('${e.id}')">Editar</button></div>`;
   document.getElementById('modalBg').classList.add('show');}
-function excluirEmpresa(eid){const e=(dados().empresas||[]).find(x=>x.id===eid);if(!e)return;if(!confirm('Excluir a empresa "'+e.unidade+'"? Os lançamentos e bancos dela ficam sem unidade.'))return;dados().empresas=(dados().empresas||[]).filter(x=>x.id!==eid);syncUnidades();saveApp();render();renderEmpresas();}
+function excluirEmpresa(eid){const e=(dados().empresas||[]).find(x=>x.id===eid);if(!e)return;
+  const uso=(dados().lancamentos||[]).filter(l=>(l.unidade||'')===e.unidade).length;
+  if(_travaExclusao(uso,'A unidade "'+e.unidade+'"','Mova esses lançamentos para outra unidade primeiro.'))return;
+  if(!confirm('Excluir a empresa "'+e.unidade+'"?'))return;dados().empresas=(dados().empresas||[]).filter(x=>x.id!==eid);syncUnidades();saveApp();render();renderEmpresas();}
 function syncUnidades(){const es=dados().empresas||[];dados().unidades=es.map(e=>e.unidade).filter(Boolean);dados().unidadesTipo={};es.forEach(e=>{if(e.unidade)dados().unidadesTipo[e.unidade]=e.tipo||'';});}
 function renderEmpresas(){const tb=document.getElementById('tbodyEmpresas');if(!tb)return;const es=dados().empresas||[];const z=document.getElementById('empresasVazio');if(z)z.style.display=es.length?'none':'block';
   const grp={};es.forEach(e=>{const r=(e.razaoSocial||'— sem razão social —').trim();(grp[r]=grp[r]||[]).push(e);});
@@ -2854,7 +2865,14 @@ function salvarBanco(){const g=i=>{const e=document.getElementById(i);return e?e
   if(bid){const b=dados().bancos.find(x=>x.id===bid);if(b)Object.assign(b,rec);}else{rec.id=id();dados().bancos.push(rec);}
   saveApp();fecharModal();render();renderBancos();}
 function toggleBancoAtivo(bid){const b=(dados().bancos||[]).find(x=>x.id===bid);if(!b)return;b.ativo=b.ativo===false?true:false;saveApp();render();renderBancos();}
-function excluirBanco(bid){if(!confirm('Excluir este banco?'))return;dados().bancos=dados().bancos.filter(b=>b.id!==bid);saveApp();render();renderBancos();}
+function _travaExclusao(qtd,oQue,comoResolver){
+  if(qtd>0){alert('Não dá para excluir.\n\n'+oQue+' está em '+qtd+' lançamento(s) do histórico.\n\n'+comoResolver);return true;}
+  return false;}
+function excluirBanco(bid){const b=(dados().bancos||[]).find(x=>x.id===bid);if(!b)return;
+  const uso=(dados().lancamentos||[]).filter(l=>(l.banco||'')===b.nome).length;
+  if(_travaExclusao(uso,'A conta "'+b.nome+'"','Troque o banco desses lançamentos primeiro, ou desative a conta em vez de excluir.'))return;
+  if(!confirm('Excluir o banco "'+b.nome+'"?'))return;
+  dados().bancos=dados().bancos.filter(x=>x.id!==bid);saveApp();render();renderBancos();}
 function renderBancos(){const tb=document.getElementById('tbodyBancos');if(!tb)return;const bs=(dados().bancos||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));document.getElementById('bancosVazio').style.display=bs.length?'none':'block';tb.innerHTML=bs.map(b=>{const at=b.ativo!==false;return `<tr><td><b>${b.nome}</b></td><td class=mini>${b.agencia||'-'}</td><td class=mini>${b.conta||'-'}</td><td class=mini>${b.unidade||'—'}</td><td class=mini>${b.tipo||'Conta corrente'}</td><td><span class="pill ${at?'ok':'warn'}">${at?'Ativa':'Inativa'}</span></td><td style="text-align:right">${moeda(b.saldoInicial||0)}</td><td style="text-align:right;white-space:nowrap"><button class="btn sec peq" onclick="toggleBancoAtivo('${b.id}')">${at?'Inativar':'Ativar'}</button> <button class="btn sec peq" onclick="abrirBanco('${b.id}')">Editar</button> <button class="btn-ico" onclick="excluirBanco('${b.id}')">🗑️</button></td></tr>`;}).join('');}
 
 function montarSelectsCartao(){const cSel=document.getElementById('ccConta');const uSel=document.getElementById('ccUnidade');
@@ -2883,7 +2901,11 @@ function salvarCartao(){const g=iid=>{const e=document.getElementById(iid);retur
   else{rec.id=id();rec.ativo=true;dados().cartoes.push(rec);}
   saveApp();abrirCartao();renderCartoes();}
 function toggleCartaoAtivo(cid){const c=(dados().cartoes||[]).find(x=>x.id===cid);if(!c)return;c.ativo=c.ativo===false?true:false;saveApp();renderCartoes();}
-function excluirCartao(cid){if(!confirm('Excluir este cartão?'))return;dados().cartoes=(dados().cartoes||[]).filter(c=>c.id!==cid);saveApp();renderCartoes();}
+function excluirCartao(cid){const c=(dados().cartoes||[]).find(x=>x.id===cid);if(!c)return;
+  const uso=(dados().lancamentos||[]).filter(l=>l.cartaoId===cid||(l.cartao||'')===c.nome).length;
+  if(_travaExclusao(uso,'O cartão "'+c.nome+'"','Troque o cartão desses lançamentos primeiro.'))return;
+  if(!confirm('Excluir o cartão "'+c.nome+'"?'))return;
+  dados().cartoes=(dados().cartoes||[]).filter(x=>x.id!==cid);saveApp();renderCartoes();}
 function renderCartoes(){const tb=document.getElementById('tbodyCartoes');if(!tb)return;montarSelectsCartao();
   const cs=(dados().cartoes||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   const z=document.getElementById('cartoesVazio');if(z)z.style.display=cs.length?'none':'block';
