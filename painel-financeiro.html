@@ -556,9 +556,10 @@
     <div class="card">
       <h2>Extrato de contas</h2>
       <div class="cap">Igual à planilha que você exporta — com o saldo acumulado linha a linha.</div>
-      <div class="filtros" style="margin-bottom:12px"><input id="fcBusca" placeholder="🔎 Buscar por cliente, descrição..." oninput="renderFluxo()"><select id="fcCat" onchange="renderFluxo()"></select><select id="fcTipo" onchange="renderFluxo()"><option value="">Entradas e saídas</option><option value="receita">Só entradas</option><option value="despesa">Só saídas</option></select></div>
+      <div class="filtros" style="margin-bottom:12px"><input id="fcBusca" placeholder="🔎 Buscar por cliente, descrição..." oninput="renderFluxo()"><select id="fcCat" onchange="renderFluxo()"></select><select id="fcTipo" onchange="renderFluxo()"><option value="">Entradas e saídas</option><option value="receita">Só entradas</option><option value="despesa">Só saídas</option></select><select id="fcBanco" onchange="renderFluxo()"><option value="">Todos os bancos</option></select><input type="date" id="fcDe" title="De" onchange="renderFluxo()"><input type="date" id="fcAte" title="Até" onchange="renderFluxo()"><button class="btn sec peq" onclick="limparFiltrosExtrato()" title="Limpar filtros">✕ Limpar</button></div>
       <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Banco</th><th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th><th style="text-align:right">Saldo</th></tr></thead><tbody id="tbodyFcExtrato"></tbody></table></div>
       <div id="fcVazio" class="vazio" style="display:none">Sem lançamentos realizados no período.</div>
+      <div style="margin-top:12px"><button class="btn sec peq" onclick="exportarExtratoCSV()">⬇ Exportar CSV</button></div>
     </div>
   </section>
 
@@ -1151,7 +1152,11 @@ const ORDEM_GRUPOS=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITA
 const GRUPOS_FATURAMENTO=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS'];
 const CORES_GRUPO={'ENTRADAS':'#16447a','CUSTOS VARIÁVEIS':'#1c4d61','DESPESAS COM PESSOAL':'#c1922f','DESPESAS COMERCIAIS':'#2f6479','DESPESAS ADMINISTRATIVAS':'#3a5a8c','DESPESAS COM MANUTENÇÃO':'#6b4a7a','FINANCEIRO':'#b23b3b','INVESTIMENTOS / RESERVAS':'#2e7d5b','Fornecedores':'#1c4d61','Despesa Fixa':'#c1922f','Não Operacional':'#3a5a8c','Investimento':'#6b4a7a','Outras Variáveis':'#16447a','Receita':'#16447a'};
 function catNumKey(n){return String(n||'').split('.').map(x=>String(parseInt(x,10)||0).padStart(4,'0')).join('.');}
-const VARIAVEIS=['Fornecedores','Outras Variáveis'];
+const VARIAVEIS=['CUSTOS VARIÁVEIS','Fornecedores','Outras Variáveis'];
+const FIXOS=['DESPESAS COM PESSOAL','DESPESAS ADMINISTRATIVAS','DESPESAS COMERCIAIS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','Despesa Fixa'];
+const INVESTIMENTOS=['INVESTIMENTOS / RESERVAS','Investimento'];
+const NAO_OPERACIONAL=['Não Operacional'];
+const CLASSIFICADOS=[].concat(VARIAVEIS,FIXOS,INVESTIMENTOS,NAO_OPERACIONAL);
 const PALETA_REC=['#143b4d','#b3537a','#16447a','#2aa39a','#c1922f','#6b4a7a','#2f6479','#c2683b'];
 
 function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
@@ -1433,18 +1438,26 @@ function calcular(){
   let receita=norm.filter(l=>l.tipo==='receita'&&!ehMovimento(l.categoria)&&!catForaDoLucro(l.categoria)).reduce((s,l)=>s+(+l.valor||0),0);
   let outrasEntradas=norm.filter(l=>l.tipo==='receita'&&!ehMovimento(l.categoria)&&catForaDoLucro(l.categoria)).reduce((s,l)=>s+(+l.valor||0),0);
   const porGrupo={};GRUPOS_DESPESA.forEach(g=>porGrupo[g]=0);
-  norm.filter(l=>l.tipo==='despesa'&&!ehMovimento(l.categoria)).forEach(l=>{porGrupo[grupoDaCategoria(l.categoria)]+=(+l.valor||0);});
+  norm.filter(l=>l.tipo==='despesa'&&!ehMovimento(l.categoria)).forEach(l=>{const _g=grupoDaCategoria(l.categoria);porGrupo[_g]=(porGrupo[_g]||0)+(+l.valor||0);});
   est.forEach(l=>{if(ehMovimento(l.categoria))return;const t=catTipo(l.categoria)||l.tipo;const v=Math.abs(+l.valor||0);if(t==='receita'){if(catForaDoLucro(l.categoria))outrasEntradas-=v;else receita-=v;}else{const g=grupoDaCategoria(l.categoria);if(porGrupo[g]===undefined)porGrupo[g]=0;porGrupo[g]-=v;}});
-  const totalDesp=Object.keys(porGrupo).reduce((s,g)=>s+porGrupo[g],0);
+  const somaG=arr=>arr.reduce((s,g)=>s+(+porGrupo[g]||0),0);
+  const naoOper=somaG(NAO_OPERACIONAL);
+  const totalGeral=Object.keys(porGrupo).reduce((s,g)=>s+(+porGrupo[g]||0),0);
+  const totalDesp=totalGeral-naoOper;   // Não Operacional fica FORA do resultado
   const lucro=receita-totalDesp, margem=receita>0?lucro/receita:0;
-  const variaveis=VARIAVEIS.reduce((s,g)=>s+porGrupo[g],0);
-  const despFixa=porGrupo['Despesa Fixa'], investimento=porGrupo['Investimento'];
+  const variaveis=somaG(VARIAVEIS);
+  const despFixa=somaG(FIXOS);
+  const investimento=somaG(INVESTIMENTOS);
   const mc=receita>0?(receita-variaveis)/receita:0;
-  const pe=mc>0?despFixa/mc:0;
+  // com margem de contribuição <= 0 o ponto de equilíbrio NÃO EXISTE (cada venda aumenta o prejuízo)
+  const pe=(receita>0&&mc>0)?despFixa/mc:null;
+  // grupos que ninguém classificou: entram no lucro, mas não na MC nem no PE -> avisar
+  const gNaoClass=Object.keys(porGrupo).filter(g=>CLASSIFICADOS.indexOf(g)<0&&Math.abs(+porGrupo[g]||0)>0.005);
+  const vNaoClass=gNaoClass.reduce((s,g)=>s+(+porGrupo[g]||0),0);
   const dfReceita=receita>0?despFixa/receita:0, reinvest=receita>0?investimento/receita:0;
   const previstos=dados().lancamentos.filter(l=>visivel(l)&&l.status==='previsto'&&!l.baixado);
   const contasPagar=previstos.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);
-  return {receita,totalDesp,lucro,margem,porGrupo,despFixa,mc,pe,dfReceita,reinvest,contasPagar,nPrev:previstos.length,outrasEntradas};
+  return {receita,totalDesp,lucro,margem,porGrupo,despFixa,mc,pe,dfReceita,reinvest,contasPagar,nPrev:previstos.length,outrasEntradas,variaveis,investimento,naoOper,gNaoClass,vNaoClass};
 }
 
 // ===================== RENDER PAINEL =====================
@@ -1493,7 +1506,7 @@ function render(){
   document.getElementById('kLucroNota').textContent=lucroMsg;
   document.getElementById('iMC').textContent=pct(c.mc);
   document.getElementById('iDF').textContent=pct(c.dfReceita);
-  document.getElementById('iPE').textContent=moeda(c.pe);
+  document.getElementById('iPE').textContent=(c.pe===null?'não atingível':moeda(c.pe));
   document.getElementById('iRI').textContent=pct(c.reinvest);
   document.getElementById('iLA').textContent=moeda(c.lucro);
   document.getElementById('iCP').textContent=moeda(c.contasPagar);
@@ -1587,7 +1600,9 @@ function analiseInsights(c){const ins=[];const hoje=new Date().toISOString().sli
   if(c.lucro<0)ins.push(['bad','🔴 Período no prejuízo',`As despesas superaram a receita em ${moeda(Math.abs(c.lucro))}. Olhe a distribuição de gastos e os maiores grupos para decidir onde cortar.`]);
   if(totVenc>0)ins.push(['bad','🔔 Contas vencidas não pagas',`${venc.length} conta(s) somando ${moeda(totVenc)} já passaram do vencimento. Priorize a quitação para evitar juros e multa.`]);
   if(c.dfReceita>0.2)ins.push(['warn','🏛️ Estrutura pesada demais',`Suas despesas fixas são ${pct(c.dfReceita)} da receita (ideal até 20%). Reveja contratos, aluguel e folha.`]);
-  if(c.receita>0&&c.mc<0.5)ins.push(['warn','📉 Margem de contribuição baixa',`Está em ${pct(c.mc)} (ideal acima de 50%). Fornecedores e custos variáveis estão comendo a margem — avalie preço e negociação.`]);
+  if(c.receita>0&&c.mc<=0)ins.push(['bad','🔴 Margem de contribuição negativa',`Os custos variáveis (${moeda(c.variaveis)}) já superam a receita (${moeda(c.receita)}). Cada venda aumenta o prejuízo, e por isso NÃO existe ponto de equilíbrio: vender mais piora. O preço ou o custo precisam mudar antes de qualquer meta de venda.`]);
+  if(c.gNaoClass&&c.gNaoClass.length)ins.push(['warn','⚠️ Grupos sem classificação de custo',`${moeda(c.vNaoClass)} em despesas estão nos grupos: ${c.gNaoClass.join(', ')}. Eles entram no lucro, mas NÃO entram na margem de contribuição nem no ponto de equilíbrio — esses dois indicadores estão otimistas. Classifique esses grupos como variável ou fixo.`]);
+  if(c.receita>0&&c.mc>0&&c.mc<0.5)ins.push(['warn','📉 Margem de contribuição baixa',`Está em ${pct(c.mc)} (ideal acima de 50%). Fornecedores e custos variáveis estão comendo a margem — avalie preço e negociação.`]);
   if(c.contasPagar>0)ins.push(['info','📌 Contas a pagar previstas',`Você tem ${moeda(c.contasPagar)} em contas previstas no período. Acompanhe pelo calendário e pelo fluxo de caixa.`]);
   if(c.receita>0&&c.reinvest<0.04)ins.push(['info','🌱 Reinveste pouco no negócio','Menos de 4% da receita voltou como investimento. Crescer com consistência pede reinvestimento planejado.']);
   if(c.margem>=0.2)ins.push(['ok','✅ Margem saudável',`Sua margem líquida está em ${pct(c.margem)}. Excelente — mantenha o ritmo e avalie onde dá para crescer.`]);
@@ -1612,7 +1627,7 @@ function gerarDiagnostico(){
   <div style="margin:16px 0"><span class=grade>${sa.grade}</span><b>Saúde financeira: ${sa.gtxt}</b> — pontuação ${sa.score}/100</div>
   <div class=kpis><div class=k><div class=r>Receita</div><div class=v>${moeda(c.receita)}</div></div><div class=k><div class=r>Despesas</div><div class=v>${moeda(c.totalDesp)}</div></div><div class=k><div class=r>Lucro</div><div class=v>${moeda(c.lucro)}</div></div><div class=k><div class=r>Margem</div><div class=v>${pct(c.margem)}</div></div></div>
   <div class=sec>Para onde foi o dinheiro</div><table><tr><th>Grupo</th><th class=num>% receita</th><th class=num>Valor</th></tr>${distRows}</table>
-  <div class=sec>Indicadores</div><table><tr><td>Margem de contribuição</td><td class=num>${pct(c.mc)}</td></tr><tr><td>Despesa fixa / receita</td><td class=num>${pct(c.dfReceita)}</td></tr><tr><td>Ponto de equilíbrio</td><td class=num>${moeda(c.pe)}</td></tr><tr><td>Reinvestido</td><td class=num>${pct(c.reinvest)}</td></tr><tr><td>Contas a pagar previstas</td><td class=num>${moeda(c.contasPagar)}</td></tr></table>
+  <div class=sec>Indicadores</div><table><tr><td>Margem de contribuição</td><td class=num>${pct(c.mc)}</td></tr><tr><td>Despesa fixa / receita</td><td class=num>${pct(c.dfReceita)}</td></tr><tr><td>Ponto de equilíbrio</td><td class=num>${c.pe===null?'não atingível':moeda(c.pe)}</td></tr><tr><td>Reinvestido</td><td class=num>${pct(c.reinvest)}</td></tr><tr><td>Contas a pagar previstas</td><td class=num>${moeda(c.contasPagar)}</td></tr></table>
   <div class=sec>Análise e recomendações</div>${insRows}
   <div class=foot>GRUPO CEZARYS LTDA &nbsp;·&nbsp; Relatório gerado em ${agora} &nbsp;·&nbsp; Painel Financeiro AURIUM &nbsp;·&nbsp; use "Salvar como PDF" na janela de impressão</div></body></html>`);
   w.document.close();setTimeout(()=>{w.focus();w.print();},500);
@@ -1857,15 +1872,59 @@ function renderFluxoCaixa(){
   document.getElementById('fcIni').textContent=moeda(saldoIni);document.getElementById('fcFim').textContent=moeda(saldoFim);
   renderConferenciaSaldo('fluxoConferencia');
   const lista=real.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  document.getElementById('fcVazio').style.display=lista.length?'none':'block';
   const fb=((document.getElementById('fcBusca')||{}).value||'').toLowerCase();const fcat=(document.getElementById('fcCat')||{}).value||'';const ftp=(document.getElementById('fcTipo')||{}).value||'';
+  const fbco=(document.getElementById('fcBanco')||{}).value||'';const fde=(document.getElementById('fcDe')||{}).value||'';const fate=(document.getElementById('fcAte')||{}).value||'';
   const _cs=document.getElementById('fcCat');if(_cs){const av=_cs.value;const cs=[...new Set(lista.map(l=>l.categoria).filter(Boolean))].sort();_cs.innerHTML='<option value="">Todas categorias</option>'+cs.map(c=>`<option value="${c}">${c}</option>`).join('');if(av)_cs.value=av;}
-  let acc=saldoIni;let html=`<tr style="background:var(--vinho-fog)"><td colspan=6><b>Saldo inicial</b></td><td style="text-align:right;font-weight:700">${moeda(acc)}</td></tr>`;
-  lista.forEach(l=>{const ent=l.tipo==='receita'?(+l.valor||0):0,sai=l.tipo==='despesa'?(+l.valor||0):0;acc+=ent-sai;
+  const _bs=document.getElementById('fcBanco');if(_bs){const av=_bs.value;const bs=bancosVisiveis().map(b=>b.nome);_bs.innerHTML='<option value="">Todos os bancos</option>'+bs.map(b=>`<option value="${b}">${b}</option>`).join('');if(av)_bs.value=av;}
+  // extrato do banco escolhido (ou de todos) — saldo inicial acompanha a escolha
+  const listaExt=lista.filter(l=>!fbco||(l.banco||'')===fbco);
+  let extIni=saldoIni;
+  if(fbco){const _b=bancosVisiveis().find(x=>x.nome===fbco);const _ini=_b?(+_b.saldoInicial||0):0;
+    const _pri=ym?dados().lancamentos.filter(l=>l.status!=='previsto'&&noUnidade(l)&&(l.banco||'')===fbco&&l.data&&l.data.slice(0,7)<ym).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0):0;
+    extIni=_ini+_pri;}
+  // o que for anterior ao "De" entra no saldo inicial, não some
+  let abertura=extIni;
+  listaExt.forEach(l=>{if(fde&&(l.data||'')<fde){abertura+=(l.tipo==='receita'?(+l.valor||0):0)-(l.tipo==='despesa'?(+l.valor||0):0);}});
+  let acc=abertura;const linhas=[];
+  listaExt.forEach(l=>{
+    if(fde&&(l.data||'')<fde)return;
+    if(fate&&(l.data||'')>fate)return;
+    const ent=l.tipo==='receita'?(+l.valor||0):0,sai=l.tipo==='despesa'?(+l.valor||0):0;acc+=ent-sai;
     const pass=(!fb||(((l.descricao||'')+' '+(l.cliente||'')+' '+(l.categoria||'')).toLowerCase().indexOf(fb)>=0))&&(!fcat||l.categoria===fcat)&&(!ftp||l.tipo===ftp);if(!pass)return;
-    const _d=l.descricao||'-';const _dc=_d.length>38?_d.slice(0,38)+'…':_d;
-    html+=`<tr style="cursor:pointer" onclick="editarLanc('${l.id}')" title="Clique para ver, editar ou excluir"><td>${l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-'}</td><td>${_dc}</td><td class=mini>${l.categoria||'-'}</td><td class=mini>${l.banco||'-'}</td><td style="text-align:right;color:var(--verde)">${ent?moeda(ent):'-'}</td><td style="text-align:right;color:var(--rubro)">${sai?moeda(sai):'-'}</td><td style="text-align:right;font-weight:700;color:${acc>=0?'var(--vinho)':'var(--rubro)'}">${moeda(acc)}</td></tr>`;});
+    linhas.push({id:l.id,data:l.data,desc:l.descricao||'-',cat:l.categoria||'-',banco:l.banco||'-',ent:ent,sai:sai,saldo:acc});});
+  window._extratoCSV={abertura:abertura,linhas:linhas,banco:fbco||'Todos os bancos'};
+  document.getElementById('fcVazio').style.display=linhas.length?'none':'block';
+  let html=`<tr style="background:var(--vinho-fog)"><td colspan=6><b>Saldo inicial</b>${fbco?` <span class=mini>· ${fbco}</span>`:''}${fde?` <span class=mini>· em ${new Date(fde+'T00:00:00').toLocaleDateString('pt-BR')}</span>`:''}</td><td style="text-align:right;font-weight:700">${moeda(abertura)}</td></tr>`;
+  linhas.forEach(r=>{const _dc=r.desc.length>38?r.desc.slice(0,38)+'…':r.desc;
+    html+=`<tr style="cursor:pointer" onclick="editarLanc('${r.id}')" title="Clique para ver, editar ou excluir"><td>${r.data?new Date(r.data+'T00:00:00').toLocaleDateString('pt-BR'):'-'}</td><td>${_dc}</td><td class=mini>${r.cat}</td><td class=mini>${r.banco}</td><td style="text-align:right;color:var(--verde)">${r.ent?moeda(r.ent):'-'}</td><td style="text-align:right;color:var(--rubro)">${r.sai?moeda(r.sai):'-'}</td><td style="text-align:right;font-weight:700;color:${r.saldo>=0?'var(--vinho)':'var(--rubro)'}">${moeda(r.saldo)}</td></tr>`;});
   document.getElementById('tbodyFcExtrato').innerHTML=html;
+}
+function limparFiltrosExtrato(){['fcBusca','fcCat','fcTipo','fcBanco','fcDe','fcAte'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderFluxo();}
+function exportarExtratoCSV(){
+  const d=window._extratoCSV;
+  if(!d||!d.linhas.length){alert('Não há lançamentos no extrato para exportar. Ajuste os filtros.');return;}
+  const emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'');
+  const br=v=>Number(v||0).toFixed(2).replace('.',',');
+  const esc=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const L=[];
+  L.push([esc('Extrato de contas — '+emp)].join(';'));
+  L.push([esc('Banco: '+d.banco)].join(';'));
+  L.push([esc('Gerado em '+new Date().toLocaleString('pt-BR'))].join(';'));
+  L.push('');
+  L.push(['Data','Descrição','Categoria','Banco','Entrada','Saída','Saldo'].map(esc).join(';'));
+  L.push([esc(''),esc('SALDO INICIAL'),esc(''),esc(''),esc(''),esc(''),esc(br(d.abertura))].join(';'));
+  d.linhas.forEach(r=>L.push([
+    esc(r.data?new Date(r.data+'T00:00:00').toLocaleDateString('pt-BR'):''),
+    esc(r.desc),esc(r.cat),esc(r.banco),
+    esc(r.ent?br(r.ent):''),esc(r.sai?br(r.sai):''),esc(br(r.saldo))].join(';')));
+  const totE=d.linhas.reduce((s,r)=>s+r.ent,0),totS=d.linhas.reduce((s,r)=>s+r.sai,0);
+  L.push('');
+  L.push([esc(''),esc('TOTAIS'),esc(''),esc(''),esc(br(totE)),esc(br(totS)),esc(br(d.linhas.length?d.linhas[d.linhas.length-1].saldo:d.abertura))].join(';'));
+  const csv='\ufeff'+L.join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Extrato_'+(d.banco==='Todos os bancos'?'todos':d.banco.replace(/[^a-zA-Z0-9]/g,'_'))+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 // ===================== DEMONSTRATIVO (matriz categoria × mês — padrão BPW) =====================
 let _demoAOA=[];
@@ -1882,7 +1941,7 @@ function totOutrasEntradasDemo(ym){return catsDemo().filter(c=>c.grupo==='OUTRAS
 function totDespesaDemo(ym){return catsDemo().filter(c=>!isEntradaCat(c)&&!ehMovimento(c.nome)).reduce((s,c)=>s+somaCatDemo(c.nome,ym),0);}
 function saldoIniTotalDemo(){return bancosVisiveis().reduce((s,b)=>s+(+b.saldoInicial||0),0);}
 function saldoAntesDemo(ym,allM){let s=saldoIniTotalDemo();allM.forEach(m=>{if(m<ym)s+=totEntradaDemo(m)-totDespesaDemo(m);});return s;}
-function ehMovimento(cn){cn=cn||'';if(/resgate/i.test(cn))return false;return /transfer[êe]ncia|fatura de cart[ãa]o|cart[ãa]o de cr[ée]dito|aplica/i.test(cn);}
+function ehMovimento(cn){cn=cn||'';return /transfer[êe]ncia|fatura de cart[ãa]o|cart[ãa]o de cr[ée]dito|aplica|resgate/i.test(cn);}
 function totAplicadoDemo(ym){return demoLancs().filter(l=>l.tipo==='despesa'&&/aplica/i.test(l.categoria||'')&&l.data.slice(0,7)===ym).reduce((s,l)=>s+(+l.valor||0),0);}
 function toggleDemoGrp(g){const rows=document.querySelectorAll('.dgr'+g);if(!rows.length)return;const hide=!rows[0].classList.contains('demo-hidden');rows.forEach(r=>r.classList.toggle('demo-hidden',hide));const a=document.getElementById('demoArr'+g);if(a)a.textContent=hide?'▸':'▾';}
 function renderDemonstrativo(){
