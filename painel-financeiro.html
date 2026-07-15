@@ -76,14 +76,14 @@
 
   /* KPIs */
   .grid-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-bottom:30px;}
-  .kpi{background:var(--branco);border-radius:14px;padding:24px 26px;box-shadow:none;position:relative;overflow:hidden;
+  .kpi{background:var(--branco);border-radius:14px;padding:22px 20px;box-shadow:none;position:relative;overflow:hidden;
     border:1px solid var(--borda);transition:.25s;}
   .kpi:hover{transform:translateY(-3px);box-shadow:var(--sombra);}
   .kpi::before{content:"";position:absolute;top:0;left:0;width:100%;height:3px;background:var(--ouro);display:none;}
   .kpi.l::before{background:linear-gradient(90deg,var(--vinho),var(--vinho3));}
   .kpi.r::before{background:var(--verde);} .kpi.d::before{background:var(--rubro);} .kpi.m::before{background:var(--ouro);}
   .kpi .rotulo{font-size:10.5px;text-transform:uppercase;letter-spacing:1.4px;color:var(--suave);font-weight:600;}
-  .kpi .valor{font-family:Georgia,serif;font-size:38px;font-weight:600;margin-top:10px;letter-spacing:-.3px;line-height:1;}
+  .kpi .valor{font-family:Georgia,serif;font-size:clamp(19px,1.92vw,30px);font-weight:600;margin-top:10px;letter-spacing:-.2px;line-height:1.15;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .kpi.l .valor{color:var(--vinho);} .kpi.d .valor{color:var(--rubro);} .kpi.r .valor{color:var(--verde);} .kpi.m .valor{color:var(--ouro);}
   .kpi .nota{font-size:11.5px;color:var(--suave);margin-top:8px;}
 
@@ -139,7 +139,7 @@
   .ind{background:var(--branco);border-radius:16px;padding:18px 20px;box-shadow:var(--sombra-sm);border:1px solid var(--borda);transition:.25s;}
   .ind:hover{transform:translateY(-2px);box-shadow:var(--sombra);}
   .ind .it{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--suave);font-weight:700;}
-  .ind .iv{font-family:Georgia,serif;font-size:24px;font-weight:700;margin-top:7px;color:var(--vinho);}
+  .ind .iv{font-family:Georgia,serif;font-size:clamp(17px,1.45vw,23px);font-weight:700;margin-top:7px;color:var(--vinho);line-height:1.15;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .ind .ih{font-size:11px;color:var(--suave);margin-top:5px;line-height:1.4;}
 
   /* Tabelas */
@@ -1309,7 +1309,8 @@ async function abrirTenant(tid){try{
   else if(APP.perfis.length===1&&(APP.perfis[0].nome==='Nova empresa'||!APP.perfis[0].nome)){
     /* repara o perfil fantasma criado por versão anterior do app */
     APP.perfis[0].nome=_ne;
-    if(APP.perfis[0].dados&&APP.perfis[0].dados.cliente&&!APP.perfis[0].dados.cliente.razaoSocial)APP.perfis[0].dados.cliente.razaoSocial=_ne;}
+    const _c=APP.perfis[0].dados&&APP.perfis[0].dados.cliente;
+    if(_c&&(!_c.razaoSocial||_c.razaoSocial==='Nova empresa'))_c.razaoSocial=_ne;}
   normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();
   if(!_readonly)cloudSave(true);
   return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
