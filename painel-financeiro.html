@@ -3283,7 +3283,7 @@ async function abrirAdmin(){
      <td>${u.ultimo_acesso?_dt(u.ultimo_acesso):'<span class="ab-sub">nunca</span>'}</td>
      <td>${badge}${u.senha_trocada===false?'<div class="ab-sub" style="color:#D97706">senha provisória</div>':''}</td>
      <td class="ab-sub">${(u.empresas||'—').replace(/</g,'&lt;')}</td>
-     <td style="white-space:nowrap">${acoes.join('')}</td></tr>`;}).join('');
+     <td style="white-space:nowrap;text-align:right">${acoes.join('')}</td></tr>`;}).join('');
   const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-approve" onclick="admAcessos('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Acessos</button><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
   const d=document.createElement('div');d.id='adminOverlay';
   d.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(14,40,51,.55);backdrop-filter:blur(4px);overflow:auto;padding:26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
@@ -3323,7 +3323,7 @@ async function abrirAdmin(){
     #adminOverlay .ab-reset{background:#DBEAFE;color:#2563EB}
     #adminOverlay .ab-block{background:#FEF3C7;color:#D97706}
     #adminOverlay .ab-del{background:#FEE2E2;color:#DC2626}
-    #adminOverlay .ab-mini{padding:.26rem;border:1px solid #e2ddd0;border-radius:5px;font-size:.68rem;color:#143b4d;background:#fff}
+    #adminOverlay .ab-mini{padding:.26rem;border:1px solid #e2ddd0;border-radius:5px;font-size:.68rem;color:#143b4d;background:#fff;max-width:120px}
     #adminOverlay .ab-primary{background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:.5rem 1rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:.78rem}
     #adminOverlay .ab-none{text-align:center;padding:1.6rem;color:#8f8073;font-size:.85rem}
   </style>
@@ -3343,7 +3343,7 @@ async function abrirAdmin(){
       <button class="ab-chip" data-f="ok" onclick="admChip(this)">Ativas<span class="c">${nAtiv}</span></button>
       <button class="ab-chip" data-f="bl" onclick="admChip(this)">Bloqueadas<span class="c">${nBloq}</span></button>
     </div>
-    <table><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th>Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="min-width:1120px"><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th style="text-align:right">Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table></div>
     <div class="ab-none" id="admNone" style="display:none">Nenhuma usuária encontrada.</div>
     <div class="ab-box" style="margin-top:18px"><div class="t">Empresas</div>
       <div style="display:flex;gap:8px;margin-bottom:10px"><input id="admNovaEmp" type="text" placeholder="nome da nova empresa" style="flex:1"><button class="ab-primary" onclick="admCriarEmpresa()">＋ Criar</button></div>
@@ -3368,27 +3368,35 @@ function admFiltrar(){
   });
   const n=document.getElementById('admNone'); if(n)n.style.display=vis===0?'block':'none';
 }
-async function _admRpc(fn,args,msg){const{error}=await sb.rpc(fn,args);if(error){alert('Erro: '+error.message);return false;}if(msg)console.log(msg);fecharAdmin();abrirAdmin();return true;}
-async function admAprovar(uid){_admRpc('admin_aprovar',{p_user:uid});}
-async function admBloquear(uid){if(!confirm('Bloquear esta usuária? Ela perde o acesso na hora.'))return;_admRpc('admin_bloquear',{p_user:uid});}
-async function admExcluir(uid,nome){if(!confirm('Excluir "'+nome+'" e todos os acessos dela? Esta ação não pode ser desfeita.'))return;_admRpc('admin_excluir',{p_user:uid});}
-async function admDarAcesso(uid,tid){if(!tid)return;_admRpc('admin_dar_acesso',{p_user:uid,p_tenant:tid,p_papel:'editor'});}
+async function _admRpc(fn,args,msg){
+  const{error}=await sb.rpc(fn,args);
+  if(error){alert('Não deu certo: '+error.message);return false;}
+  if(msg)alert(msg);
+  _empresas=await carregarMinhasEmpresas();
+  fecharAdmin();await abrirAdmin();return true;}
+async function admAprovar(uid){await _admRpc('admin_aprovar',{p_user:uid});}
+async function admBloquear(uid){if(!confirm('Bloquear esta usuária? Ela perde o acesso na hora.'))return;await _admRpc('admin_bloquear',{p_user:uid});}
+async function admExcluir(uid,nome){if(!confirm('Excluir "'+nome+'" e todos os acessos dela? Esta ação não pode ser desfeita.'))return;await _admRpc('admin_excluir',{p_user:uid});}
+async function admDarAcesso(uid,tid){if(!tid)return;await _admRpc('admin_dar_acesso',{p_user:uid,p_tenant:tid,p_papel:'editor'});}
 async function admSetPlano(uid,plano){
   let exp=null;
   if(plano!=='Interno'){
     const v=prompt('Até quando vale o plano '+plano+'? (dd/mm/aaaa — deixe vazio para sem prazo)','');
     if(v&&v.trim()){const p=v.trim().split('/');if(p.length===3)exp=p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}
   }
-  _admRpc('admin_set_plano',{p_user:uid,p_plano:plano,p_expira:exp});
+  await _admRpc('admin_set_plano',{p_user:uid,p_plano:plano,p_expira:exp});
 }
 async function admResetSenha(uid,email){
   if(!confirm('Enviar link de redefinição para '+email+' e exigir nova senha no próximo acesso?'))return;
   try{await sb.auth.resetPasswordForEmail(email);}catch(e){}
-  _admRpc('admin_exigir_troca_senha',{p_user:uid});
+  await _admRpc('admin_exigir_troca_senha',{p_user:uid});
 }
-async function admRenomear(tid){const nome=prompt('Novo nome da empresa:');if(!nome||!nome.trim())return;_admRpc('admin_renomear_empresa',{p_tenant:tid,p_nome:nome.trim()});}
-async function admExcluirEmpresa(tid,nome){if(!confirm('Excluir a empresa "'+nome+'" e TODOS os dados dela? Esta ação não pode ser desfeita.'))return;_admRpc('admin_excluir_empresa',{p_tenant:tid});}
-async function admCriarEmpresa(){const n=(document.getElementById('admNovaEmp').value||'').trim();if(!n)return;_admRpc('admin_criar_empresa',{p_nome:n});}
+async function admRenomear(tid){const nome=prompt('Novo nome da empresa:');if(!nome||!nome.trim())return;await _admRpc('admin_renomear_empresa',{p_tenant:tid,p_nome:nome.trim()});}
+async function admExcluirEmpresa(tid,nome){if(!confirm('Excluir a empresa "'+nome+'" e TODOS os dados dela? Esta ação não pode ser desfeita.'))return;await _admRpc('admin_excluir_empresa',{p_tenant:tid});}
+async function admCriarEmpresa(){
+  const el=document.getElementById('admNovaEmp');const n=(el&&el.value||'').trim();
+  if(!n){alert('Digite o nome da nova empresa antes de clicar em ＋ Criar.');if(el)el.focus();return;}
+  await _admRpc('admin_criar_empresa',{p_nome:n},'Empresa "'+n+'" criada. Agora libere o acesso de quem vai cuidar dela pelo "+ empresa…" na linha da usuária.');}
 async function admAcessos(tid,nome){
   window._acsTid=tid; if(nome)window._acsNome=nome;
   const o0=document.getElementById('acsOverlay'); if(o0)o0.remove();
