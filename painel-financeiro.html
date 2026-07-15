@@ -3400,10 +3400,13 @@ async function abrirAdmin(){
        if(!empresas.length)return '<span class="ab-sub">—</span>';
        return `<details class="ab-empd">
          <summary class="ab-empbtn ${_l.length?'on':''}" title="${_l.join(' · ').replace(/"/g,'&quot;')}">${_rot.replace(/</g,'&lt;')}</summary>
-         <div class="ab-emppop">${empresas.map(e=>{
-           const _n=(e.nome||''), _m=_l.indexOf(_n)>=0;
-           return `<label class="ab-empopt"><input type="checkbox" ${_m?'checked':''} onchange="admToggleAcesso('${u.user_id}','${e.tenant_id}',this.checked,'${_n.replace(/'/g,"")}')"><span>${_n.replace(/</g,'&lt;')}</span></label>`;
-         }).join('')}</div></details>`;})()}</td>
+         <div class="ab-emppop">
+           <span class="ab-emppop-l">Empresas — marque uma ou várias</span>
+           <div class="ab-empgrid">${empresas.map(e=>{
+             const _n=(e.nome||''), _m=_l.indexOf(_n)>=0;
+             return `<label class="ab-empopt" title="${_n.replace(/"/g,'&quot;')}"><input type="checkbox" ${_m?'checked':''} onchange="admToggleAcesso('${u.user_id}','${e.tenant_id}',this.checked,'${_n.replace(/'/g,"")}')"><span>${_n.replace(/</g,'&lt;')}</span></label>`;
+           }).join('')}</div>
+         </div></details>`;})()}</td>
      <td style="white-space:nowrap;text-align:right">${acoes.join('')}</td></tr>`;}).join('');
   const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-approve" onclick="admAcessos('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Acessos</button><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
   const d=document.createElement('div');d.id='adminOverlay';
@@ -3415,20 +3418,24 @@ async function abrirAdmin(){
     #adminOverlay .ab-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#8f8073}
     #adminOverlay .ab-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px}
     #adminOverlay .ab-card{background:#fff;border:1px solid #e2ddd0;border-radius:12px;padding:14px;text-align:center}
-.ab-emp{white-space:nowrap;position:relative}
-.ab-empd{position:relative;display:inline-block}
+/* Campo de seleção de empresas — fechado mostra o resumo, aberto mostra os chips */
+.ab-emp{position:relative;white-space:normal}
+.ab-empd{position:relative;display:block;max-width:220px}
 .ab-empd>summary{list-style:none;cursor:pointer}
 .ab-empd>summary::-webkit-details-marker{display:none}
-.ab-empbtn{display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:600;color:#8f8073;background:#fff;border:1px solid #e2ddd0;border-radius:8px;padding:6px 11px;max-width:180px;white-space:nowrap;transition:.15s;user-select:none}
-.ab-empbtn::after{content:'⌄';font-size:.85rem;line-height:1;opacity:.55;margin-left:auto}
+.ab-empbtn{display:flex;align-items:center;gap:8px;width:100%;font-size:.78rem;font-weight:500;color:#8f8073;background:#fff;border:1px solid #e2ddd0;border-radius:11px;padding:9px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .15s,background .15s;user-select:none}
+.ab-empbtn::after{content:'';flex:none;margin-left:auto;width:7px;height:7px;border-right:1.5px solid #a4907c;border-bottom:1.5px solid #a4907c;transform:rotate(45deg) translate(-2px,-2px);transition:transform .18s}
 .ab-empbtn:hover{border-color:#c1922f}
-.ab-empbtn.on{color:#143b4d;background:#F1EDE3;border-color:#E4DCCD}
-.ab-empd[open]>summary{border-color:#c1922f;background:#FFFDF7;color:#143b4d}
-.ab-emppop{position:absolute;z-index:60;top:calc(100% + 5px);left:0;min-width:230px;max-width:320px;max-height:260px;overflow-y:auto;background:#fff;border:1px solid #E4DCCD;border-radius:11px;box-shadow:0 14px 34px -10px rgba(20,59,77,.28);padding:6px}
-.ab-empopt{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:.76rem;color:#143b4d;cursor:pointer;white-space:normal;line-height:1.35;transition:.12s}
-.ab-empopt:hover{background:#FAF7F0}
-.ab-empopt input[type=checkbox]{width:15px;height:15px;min-width:15px;padding:0;margin:0;accent-color:#c1922f;cursor:pointer;flex:none}
-.ab-empopt:has(input:checked){font-weight:600}
+.ab-empbtn.on{color:#143b4d;font-weight:600}
+.ab-empd[open]>summary.ab-empbtn{border-color:#c1922f;background:#FFFDF7;color:#143b4d}
+.ab-empd[open]>summary.ab-empbtn::after{transform:rotate(-135deg) translate(-3px,-3px)}
+.ab-emppop{position:absolute;z-index:60;top:calc(100% + 6px);left:0;width:290px;max-height:280px;overflow-y:auto;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:12px;box-shadow:0 16px 40px -12px rgba(20,59,77,.3);padding:13px}
+.ab-emppop-l{display:block;font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#a4907c;margin-bottom:9px;line-height:1.4}
+.ab-empgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:7px}
+.ab-empopt{display:flex;align-items:flex-start;gap:8px;background:#fff;border:1px solid #e2ddd0;border-radius:9px;padding:9px 11px;font-size:.72rem;line-height:1.35;color:#143b4d;cursor:pointer;transition:border-color .12s,background .12s;user-select:none}
+.ab-empopt:hover{border-color:#c1922f}
+.ab-empopt input[type=checkbox]{width:14px;height:14px;min-width:14px;padding:0;margin:1px 0 0;accent-color:#c1922f;cursor:pointer;flex:none}
+.ab-empopt:has(input:checked){background:#FDF8EE;border-color:#c1922f;font-weight:600}
 
     #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d;line-height:1}
     #adminOverlay .ab-card .l{font-size:.64rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#8f8073;margin-top:5px}
