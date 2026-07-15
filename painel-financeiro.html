@@ -3399,7 +3399,7 @@ async function abrirAdmin(){
        const _rot=!_l.length?'nenhuma':(_l.length===1?_l[0]:_l.length+' empresas');
        if(!empresas.length)return '<span class="ab-sub">—</span>';
        return `<details class="ab-empd">
-         <summary class="ab-empbtn ${_l.length?'on':''}" title="${_l.join(' · ').replace(/"/g,'&quot;')}">${_rot.replace(/</g,'&lt;')}</summary>
+         <summary class="ab-empbtn ${_l.length?'on':''}" title="${(_l.join(' · ')||'Sem acesso a nenhuma empresa').replace(/"/g,'&quot;')}"><span class="ab-empbtn-t">${_rot.replace(/</g,'&lt;')}</span></summary>
          <div class="ab-emppop">
            <span class="ab-emppop-l">Empresas — marque uma ou várias</span>
            <div class="ab-empgrid">${empresas.map(e=>{
@@ -3423,7 +3423,8 @@ async function abrirAdmin(){
 .ab-empd{position:relative;display:block;max-width:220px}
 .ab-empd>summary{list-style:none;cursor:pointer}
 .ab-empd>summary::-webkit-details-marker{display:none}
-.ab-empbtn{display:flex;align-items:center;gap:8px;width:100%;font-size:.78rem;font-weight:500;color:#8f8073;background:#fff;border:1px solid #e2ddd0;border-radius:11px;padding:9px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .15s,background .15s;user-select:none}
+.ab-empbtn{display:flex;align-items:center;gap:8px;width:100%;font-size:.78rem;font-weight:500;color:#8f8073;background:#fff;border:1px solid #e2ddd0;border-radius:11px;padding:9px 12px;transition:border-color .15s,background .15s;user-select:none}
+.ab-empbtn-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ab-empbtn::after{content:'';flex:none;margin-left:auto;width:7px;height:7px;border-right:1.5px solid #a4907c;border-bottom:1.5px solid #a4907c;transform:rotate(45deg) translate(-2px,-2px);transition:transform .18s}
 .ab-empbtn:hover{border-color:#c1922f}
 .ab-empbtn.on{color:#143b4d;font-weight:600}
