@@ -3017,10 +3017,17 @@ async function boot(){
   try{const{data}=await sb.auth.getSession();if(data&&data.session){await aposLoginCloud();return;}}catch(e){console.warn(e);}
   renderLogin();
 }
+async function meuStatus(){try{const{data,error}=await sb.rpc('meu_status');if(error){console.warn(error);return null;}return (data&&data[0])||null;}catch(e){console.warn(e);return null;}}
 async function aposLoginCloud(){
   fecharLogin();
-  await carregarMeu();
-  if(_me&&_me.ativo===false){alert('Seu acesso está bloqueado. Fale com a administradora.');try{await sb.auth.signOut();}catch(e){}location.reload();return;}
+  const u=await cloudUser(); if(!u){renderLogin();return;}
+  const st=await meuStatus();
+  if(!st){renderAviso('Cadastro em análise','Recebemos o seu cadastro. Assim que a administradora aprovar, você recebe o acesso por aqui.');return;}
+  if(st.status==='bloqueado'||st.ativo===false){renderAviso('Acesso bloqueado','Sua conta está bloqueada. Fale com a administradora para reativar.','&#128274;');return;}
+  if(st.status==='pendente'){renderAviso('Cadastro em análise','Recebemos o seu cadastro. Assim que a administradora aprovar, você recebe o acesso por aqui.');return;}
+  if(st.senha_trocada===false){renderTrocaSenha();return;}
+  _me={user_id:u.id,email:u.email,nome:st.nome,papel:st.papel,status:st.status,ativo:st.ativo};
+  try{await sb.rpc('registrar_acesso');}catch(e){}
   _empresas=await carregarMinhasEmpresas();
   if(_empresas.length===1){await abrirEmpresa(_empresas[0].tenant_id);}
   else{renderSeletor();}
@@ -3028,27 +3035,107 @@ async function aposLoginCloud(){
 function renderLogin(){
   if(document.getElementById('loginOverlay'))return;
   const d=document.createElement('div');d.id='loginOverlay';
-  d.style.cssText="position:fixed;inset:0;z-index:200;background:radial-gradient(circle at 30% 15%,#1c4d61,#0e2833 72%);display:flex;align-items:center;justify-content:center;padding:22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
-  d.innerHTML=`<div style="background:rgba(20,59,77,.55);backdrop-filter:blur(9px);border:1px solid rgba(193,146,47,.32);border-radius:22px;max-width:400px;width:100%;padding:42px 34px;box-shadow:0 30px 80px -28px rgba(0,0,0,.7);text-align:center">
-    <div style="font-family:Georgia,serif;font-size:34px;color:#fff;font-weight:700;letter-spacing:.5px">MEU FINANCEIRO</div>
-    <div style="font-size:11px;letter-spacing:4px;color:#d9ab44;text-transform:uppercase;margin:6px 0 28px">INTEIRA Tech</div>
+  d.style.cssText="position:fixed;inset:0;z-index:200;background:radial-gradient(circle at 30% 15%,#1c4d61,#0e2833 72%);display:flex;align-items:center;justify-content:center;padding:22px;overflow:auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  d.innerHTML=`<div style="background:rgba(20,59,77,.55);backdrop-filter:blur(9px);border:1px solid rgba(193,146,47,.32);border-radius:22px;max-width:400px;width:100%;padding:38px 34px;box-shadow:0 30px 80px -28px rgba(0,0,0,.7);text-align:center">
+    <div style="font-family:Georgia,serif;font-size:32px;color:#fff;font-weight:700;letter-spacing:.5px">MEU FINANCEIRO</div>
+    <div style="font-size:11px;letter-spacing:4px;color:#d9ab44;text-transform:uppercase;margin:6px 0 24px">INTEIRA Tech</div>
     <div style="text-align:left">
+      <div id="lgNovos" style="display:none">
+        <label style="font-size:11px;letter-spacing:1px;color:#cfe0e6;text-transform:uppercase">Seu nome</label>
+        <input id="lgNome" type="text" style="width:100%;padding:12px;border:none;border-radius:12px;margin:6px 0 12px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box">
+        <label style="font-size:11px;letter-spacing:1px;color:#cfe0e6;text-transform:uppercase">Seu negócio</label>
+        <input id="lgNeg" type="text" placeholder="ex.: Clínica, Loja, Consultoria" style="width:100%;padding:12px;border:none;border-radius:12px;margin:6px 0 12px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box">
+      </div>
       <label style="font-size:11px;letter-spacing:1px;color:#cfe0e6;text-transform:uppercase">E-mail</label>
-      <input id="lgEmail" type="email" autocomplete="username" style="width:100%;padding:13px;border:none;border-radius:12px;margin:6px 0 14px;background:#eef4f5;color:#143b4d;font-size:14px">
+      <input id="lgEmail" type="email" autocomplete="username" style="width:100%;padding:12px;border:none;border-radius:12px;margin:6px 0 12px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box">
       <label style="font-size:11px;letter-spacing:1px;color:#cfe0e6;text-transform:uppercase">Senha</label>
-      <div style="position:relative"><input id="lgSenha" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()" style="width:100%;padding:13px 46px 13px 13px;border:none;border-radius:12px;margin:6px 0 4px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box"><span id="lgEye" onclick="var i=document.getElementById('lgSenha');i.type=(i.type==='password'?'text':'password');this.textContent=(i.type==='password'?'👁':'🙈')" title="Mostrar/ocultar senha" style="position:absolute;right:14px;top:18px;cursor:pointer;font-size:17px;user-select:none">👁</span></div>
+      <div style="position:relative"><input id="lgSenha" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')(window._lgModo==='criar'?criarConta():fazerLogin())" style="width:100%;padding:12px 46px 12px 12px;border:none;border-radius:12px;margin:6px 0 4px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box"><span id="lgEye" onclick="var i=document.getElementById('lgSenha');i.type=(i.type==='password'?'text':'password');this.textContent=(i.type==='password'?'&#128065;':'&#128584;')" title="Mostrar/ocultar senha" style="position:absolute;right:14px;top:17px;cursor:pointer;font-size:17px;user-select:none">&#128065;</span></div>
     </div>
     <div id="lgMsg" style="font-size:12px;color:#f2b8b8;min-height:16px;margin:8px 0;text-align:center"></div>
-    <button onclick="fazerLogin()" style="width:100%;background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;letter-spacing:.3px">Entrar</button>
-    <div onclick="resetSenha()" style="color:#cfe0e6;font-size:12px;margin:14px 0;cursor:pointer">Esqueci a senha</div>
-    <div style="font-size:11px;color:#9fb4bc;margin-top:6px;line-height:1.5">O acesso é liberado pela administradora.<br>Sem conta? Fale com quem administra o painel.</div>
+    <button id="lgBtn" onclick="window._lgModo==='criar'?criarConta():fazerLogin()" style="width:100%;background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;letter-spacing:.3px">Entrar</button>
+    <div id="lgEsq" onclick="resetSenha()" style="color:#cfe0e6;font-size:12px;margin:14px 0 10px;cursor:pointer">Esqueci a senha</div>
+    <button id="lgAlt" onclick="alternarModoLogin()" style="width:100%;background:none;border:1px solid rgba(193,146,47,.5);color:#d9ab44;padding:11px;border-radius:12px;cursor:pointer;font-size:12.5px;font-weight:700;letter-spacing:.4px">CRIAR MINHA CONTA</button>
+    <div id="lgAviso" style="font-size:10.5px;color:#9fb4bc;margin-top:12px;line-height:1.5;display:none">Seu cadastro fica em an&aacute;lise. Assim que for aprovado, voc&ecirc; recebe o acesso.</div>
   </div>`;
   document.body.appendChild(d);
+  window._lgModo='entrar';
+}
+function alternarModoLogin(){
+  const criar = window._lgModo!=='criar';
+  window._lgModo = criar?'criar':'entrar';
+  document.getElementById('lgNovos').style.display = criar?'block':'none';
+  document.getElementById('lgAviso').style.display = criar?'block':'none';
+  document.getElementById('lgEsq').style.display = criar?'none':'block';
+  document.getElementById('lgBtn').textContent = criar?'Criar minha conta':'Entrar';
+  document.getElementById('lgAlt').textContent = criar?'JÁ TENHO CONTA':'CRIAR MINHA CONTA';
+  document.getElementById('lgMsg').textContent='';
+}
+async function criarConta(){
+  const e=(document.getElementById('lgEmail').value||'').trim(), p=document.getElementById('lgSenha').value||'';
+  const nome=(document.getElementById('lgNome').value||'').trim(), neg=(document.getElementById('lgNeg').value||'').trim();
+  const m=document.getElementById('lgMsg');
+  if(!nome){m.style.color='#f2b8b8';m.textContent='Informe o seu nome.';return;}
+  if(!e||p.length<6){m.style.color='#f2b8b8';m.textContent='Informe e-mail e uma senha de 6+ caracteres.';return;}
+  m.style.color='#cfe0e6';m.textContent='Criando...';
+  try{
+    const{error}=await sb.auth.signUp({email:e,password:p,options:{data:{nome:nome,negocio:neg}}});
+    if(error){m.style.color='#f2b8b8';m.textContent='Não consegui criar: '+error.message;return;}
+    m.style.color='#bfe6c9';m.textContent='Conta criada. Seu cadastro está em análise.';
+    setTimeout(()=>{try{aposLoginCloud();}catch(x){}} ,900);
+  }catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}
 }
 async function resetSenha(){const e=(document.getElementById('lgEmail').value||'').trim();const m=document.getElementById('lgMsg');if(!e){m.style.color='#f2b8b8';m.textContent='Informe o e-mail para receber o link de redefinição.';return;}try{const{error}=await sb.auth.resetPasswordForEmail(e);m.style.color=error?'#f2b8b8':'#bfe6c9';m.textContent=error?('Erro: '+error.message):'Enviamos um link de redefinição para o seu e-mail.';}catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}}
 function fecharLogin(){const o=document.getElementById('loginOverlay');if(o)o.remove();}
-async function fazerLogin(){const e=(document.getElementById('lgEmail').value||'').trim(),p=document.getElementById('lgSenha').value||'';const m=document.getElementById('lgMsg');m.style.color='#b23b3b';m.textContent='Entrando...';try{const{error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){m.textContent='Não consegui entrar: '+error.message;return;}aposLoginCloud();}catch(x){m.textContent='Erro: '+x.message;}}
+async function fazerLogin(){const e=(document.getElementById('lgEmail').value||'').trim(),p=document.getElementById('lgSenha').value||'';const m=document.getElementById('lgMsg');m.style.color='#cfe0e6';m.textContent='Entrando...';try{const{error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){m.style.color='#f2b8b8';m.textContent='Não consegui entrar: '+error.message;return;}aposLoginCloud();}catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}}
 async function sairNuvem(){try{await sb.auth.signOut();}catch(e){}location.reload();}
+
+/* ===================== TELAS DE ESTADO ===================== */
+function fecharAviso(){const o=document.getElementById('avisoOverlay');if(o)o.remove();}
+function renderAviso(titulo,texto,icone){
+  fecharAviso();
+  const d=document.createElement('div');d.id='avisoOverlay';
+  d.style.cssText="position:fixed;inset:0;z-index:210;background:radial-gradient(circle at 30% 15%,#1c4d61,#0e2833 72%);display:flex;align-items:center;justify-content:center;padding:22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  d.innerHTML=`<div style="background:rgba(20,59,77,.55);backdrop-filter:blur(9px);border:1px solid rgba(193,146,47,.32);border-radius:22px;max-width:420px;width:100%;padding:42px 34px;text-align:center;box-shadow:0 30px 80px -28px rgba(0,0,0,.7)">
+    <div style="font-size:34px;margin-bottom:8px">${icone||'&#9203;'}</div>
+    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;margin-bottom:10px">${titulo}</div>
+    <div style="font-size:13.5px;color:#cfe0e6;line-height:1.65">${texto}</div>
+    <button onclick="sairNuvem()" style="margin-top:24px;background:none;border:1px solid rgba(193,146,47,.5);color:#d9ab44;padding:11px 26px;border-radius:12px;cursor:pointer;font-size:12.5px;font-weight:700">SAIR</button>
+  </div>`;
+  document.body.appendChild(d);
+}
+function renderTrocaSenha(){
+  fecharAviso();
+  const d=document.createElement('div');d.id='avisoOverlay';
+  d.style.cssText="position:fixed;inset:0;z-index:210;background:radial-gradient(circle at 30% 15%,#1c4d61,#0e2833 72%);display:flex;align-items:center;justify-content:center;padding:22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  d.innerHTML=`<div style="background:rgba(20,59,77,.55);backdrop-filter:blur(9px);border:1px solid rgba(193,146,47,.32);border-radius:22px;max-width:400px;width:100%;padding:38px 34px;box-shadow:0 30px 80px -28px rgba(0,0,0,.7)">
+    <div style="text-align:center;font-family:Georgia,serif;font-size:23px;color:#fff">Crie a sua senha</div>
+    <div style="text-align:center;font-size:12.5px;color:#cfe0e6;margin:8px 0 22px;line-height:1.6">Por segurança, defina uma senha sua antes de entrar pela primeira vez.</div>
+    <label style="font-size:11px;letter-spacing:1px;color:#cfe0e6;text-transform:uppercase">Nova senha</label>
+    <input id="tsA" type="password" style="width:100%;padding:12px;border:none;border-radius:12px;margin:6px 0 12px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box">
+    <label style="font-size:11px;letter-spacing:1px;color:#cfe0e6;text-transform:uppercase">Repita a nova senha</label>
+    <input id="tsB" type="password" onkeydown="if(event.key==='Enter')salvarNovaSenha()" style="width:100%;padding:12px;border:none;border-radius:12px;margin:6px 0 4px;background:#eef4f5;color:#143b4d;font-size:14px;box-sizing:border-box">
+    <div id="tsMsg" style="font-size:12px;color:#f2b8b8;min-height:16px;margin:8px 0;text-align:center"></div>
+    <button onclick="salvarNovaSenha()" style="width:100%;background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px">Salvar e entrar</button>
+    <div onclick="sairNuvem()" style="text-align:center;color:#cfe0e6;font-size:12px;margin-top:14px;cursor:pointer">Sair</div>
+  </div>`;
+  document.body.appendChild(d);
+}
+async function salvarNovaSenha(){
+  const a=document.getElementById('tsA').value||'', b=document.getElementById('tsB').value||'';
+  const m=document.getElementById('tsMsg');
+  if(a.length<6){m.style.color='#f2b8b8';m.textContent='A senha precisa ter 6 caracteres ou mais.';return;}
+  if(a!==b){m.style.color='#f2b8b8';m.textContent='As duas senhas não são iguais.';return;}
+  if(a==='123456'){m.style.color='#f2b8b8';m.textContent='Escolha uma senha diferente dessa.';return;}
+  m.style.color='#cfe0e6';m.textContent='Salvando...';
+  try{
+    const{error}=await sb.auth.updateUser({password:a});
+    if(error){m.style.color='#f2b8b8';m.textContent='Erro: '+error.message;return;}
+    await sb.rpc('marcar_senha_trocada');
+    fecharAviso();
+    aposLoginCloud();
+  }catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}
+}
+
 function montarBarraNuvem(){const bar=document.querySelector('.tb-acoes');if(!bar)return;
   let s=document.getElementById('cloudStatus');
   if(!s){s=document.createElement('span');s.id='cloudStatus';s.style.cssText='font-size:11px;color:#8f8073;margin-right:6px';bar.appendChild(s);}
@@ -3090,86 +3177,146 @@ async function adminNovaEmpresa(){
   _empresas=await carregarMinhasEmpresas();await abrirEmpresa(data);
 }
 
-/* ===================== PAINEL ADMIN (só master) ===================== */
+/* ===================== PAINEL ADMIN (modelo SB) ===================== */
+const PLANOS=['Teste','Mensal','Semestral','Anual','Interno'];
 function fecharAdmin(){const o=document.getElementById('adminOverlay');if(o)o.remove();}
+function _dt(v){return v?new Date(v).toLocaleDateString('pt-BR'):'—';}
 async function abrirAdmin(){
   if(!(_me&&_me.papel==='master')){alert('Apenas a administradora.');return;}
   const[us,em]=await Promise.all([sb.rpc('admin_listar_usuarios'),sb.rpc('admin_listar_empresas')]);
   if(us.error){alert('Erro: '+us.error.message);return;}
   const usuarios=us.data||[],empresas=(em.data||[]);
-  const masters=usuarios.filter(u=>u.papel==='master').length,ops=usuarios.length-masters;
+  const nTot=usuarios.length,
+        nPend=usuarios.filter(u=>u.status==='pendente').length,
+        nAtiv=usuarios.filter(u=>u.status==='aprovado').length,
+        nBloq=usuarios.filter(u=>u.status==='bloqueado').length;
   const optsEmp=empresas.map(e=>`<option value="${e.tenant_id}">${(e.nome||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')}</option>`).join('');
-  const rows=usuarios.map(u=>`<tr>
-     <td><strong>${(u.nome||'—').replace(/</g,'&lt;')}</strong><br><span style="font-size:.75rem;color:#96847d">${(u.email||'').replace(/</g,'&lt;')}</span></td>
-     <td>${u.papel==='master'?'<span class="ab-badge ab-ok">Master</span>':'<span class="ab-badge ab-op">Operadora</span>'}</td>
-     <td>${u.ativo?'<span class="ab-badge ab-ok">Ativa</span>':'<span class="ab-badge ab-bl">Bloqueada</span>'}</td>
-     <td style="font-size:.78rem;color:#5b4a38">${(u.empresas||'—').replace(/</g,'&lt;')}</td>
-     <td style="white-space:nowrap">
-       <select onchange="admDarAcesso('${u.user_id}',this.value);this.selectedIndex=0" class="ab-mini"><option value="">+ acesso a empresa…</option>${optsEmp}</select>
-       <button class="ab-act ab-reset" onclick="admTogglePapel('${u.user_id}','${u.papel}')">${u.papel==='master'?'→ operadora':'→ master'}</button>
-       <button class="ab-act ${u.ativo?'ab-block':'ab-approve'}" onclick="admToggleAtivo('${u.user_id}',${u.ativo?'false':'true'})">${u.ativo?'Bloquear':'Ativar'}</button>
-     </td></tr>`).join('');
-  const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${e.atualizado_em?new Date(e.atualizado_em).toLocaleDateString('pt-BR'):'—'}</td><td><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button></td></tr>`).join('');
+  const rows=usuarios.map(u=>{
+    const badge = u.status==='aprovado'?'<span class="ab-badge ab-ok">Ativa</span>'
+                : u.status==='pendente'?'<span class="ab-badge ab-pd">Pendente</span>'
+                : '<span class="ab-badge ab-bl">Bloqueada</span>';
+    const planoSel=`<select class="ab-mini" onchange="admSetPlano('${u.user_id}',this.value)">${PLANOS.map(p=>`<option ${u.plano===p?'selected':''}>${p}</option>`).join('')}</select>`;
+    const acoes=[];
+    if(u.status==='pendente')acoes.push(`<button class="ab-act ab-approve" onclick="admAprovar('${u.user_id}')">Aprovar</button>`);
+    acoes.push(`<select class="ab-mini" onchange="admDarAcesso('${u.user_id}',this.value);this.selectedIndex=0"><option value="">+ empresa…</option>${optsEmp}</select>`);
+    acoes.push(`<button class="ab-act ab-reset" onclick="admResetSenha('${u.user_id}','${(u.email||'').replace(/'/g,"")}')">Resetar senha</button>`);
+    if(u.status!=='bloqueado')acoes.push(`<button class="ab-act ab-block" onclick="admBloquear('${u.user_id}')">Bloquear</button>`);
+    else acoes.push(`<button class="ab-act ab-approve" onclick="admAprovar('${u.user_id}')">Reativar</button>`);
+    acoes.push(`<button class="ab-act ab-del" onclick="admExcluir('${u.user_id}','${(u.nome||'').replace(/'/g,"")}')">Excluir</button>`);
+    return `<tr>
+     <td><strong>${(u.nome||'—').replace(/</g,'&lt;')}</strong>${u.papel==='master'?' <span class="ab-badge ab-ms">Master</span>':''}<br><span class="ab-sub">${(u.email||'').replace(/</g,'&lt;')}</span></td>
+     <td>${(u.negocio||'—').replace(/</g,'&lt;')}</td>
+     <td>${planoSel}${u.expira_em?`<div class="ab-sub">até ${_dt(u.expira_em)}</div>`:''}</td>
+     <td>${_dt(u.criado_em)}</td>
+     <td>${u.ultimo_acesso?_dt(u.ultimo_acesso):'<span class="ab-sub">nunca</span>'}</td>
+     <td>${badge}${u.senha_trocada===false?'<div class="ab-sub" style="color:#D97706">senha provisória</div>':''}</td>
+     <td class="ab-sub">${(u.empresas||'—').replace(/</g,'&lt;')}</td>
+     <td style="white-space:nowrap">${acoes.join('')}</td></tr>`;}).join('');
+  const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
   const d=document.createElement('div');d.id='adminOverlay';
-  d.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(14,40,51,.55);backdrop-filter:blur(4px);overflow:auto;padding:26px;font-family:'DM Sans',-apple-system,'Segoe UI',Arial,sans-serif";
+  d.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(14,40,51,.55);backdrop-filter:blur(4px);overflow:auto;padding:26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
   d.innerHTML=`<style>
-    #adminOverlay .ab-wrap{max-width:1100px;margin:0 auto;background:#FAF7F2;border-radius:18px;padding:24px 26px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
+    #adminOverlay .ab-wrap{max-width:1280px;margin:0 auto;background:#FFFEFB;border-radius:18px;padding:24px 26px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
     #adminOverlay h2{font-family:Georgia,serif;color:#143b4d;font-size:1.5rem;margin:0}
-    #adminOverlay .ab-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E8E2D8;padding-bottom:14px;margin-bottom:18px}
-    #adminOverlay .ab-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#96847d}
-    #adminOverlay .ab-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px}
-    #adminOverlay .ab-card{background:#fff;border:1px solid #E8E2D8;border-radius:12px;padding:14px;text-align:center}
-    #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d}
-    #adminOverlay .ab-card .l{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#96847d;margin-top:3px}
-    #adminOverlay .ab-box{background:#fff;border:1px solid #E8E2D8;border-radius:12px;padding:14px 16px;margin-bottom:16px}
-    #adminOverlay .ab-box .t{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#96847d;margin-bottom:8px}
-    #adminOverlay input,#adminOverlay .ab-search{padding:.55rem .8rem;border:1.5px solid #E8E2D8;border-radius:8px;font-size:.85rem;color:#143b4d;outline:none;font-family:inherit}
+    #adminOverlay .ab-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2ddd0;padding-bottom:14px;margin-bottom:18px}
+    #adminOverlay .ab-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#8f8073}
+    #adminOverlay .ab-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px}
+    #adminOverlay .ab-card{background:#fff;border:1px solid #e2ddd0;border-radius:12px;padding:14px;text-align:center}
+    #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d;line-height:1}
+    #adminOverlay .ab-card .l{font-size:.64rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#8f8073;margin-top:5px}
+    #adminOverlay .ab-filters{display:flex;gap:.7rem;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+    #adminOverlay .ab-search{flex:1;min-width:220px;padding:.65rem .9rem;border:1.5px solid #e2ddd0;border-radius:10px;font-family:inherit;font-size:.86rem;color:#143b4d;outline:none;background:#fff}
+    #adminOverlay .ab-search:focus{border-color:#c1922f}
+    #adminOverlay .ab-chip{padding:.5rem .9rem;border:1.5px solid #e2ddd0;border-radius:8px;font-family:inherit;font-size:.72rem;font-weight:600;color:#8f8073;background:#fff;cursor:pointer;white-space:nowrap}
+    #adminOverlay .ab-chip:hover{border-color:#c1922f;color:#c1922f}
+    #adminOverlay .ab-chip.on{background:#143b4d;color:#fff;border-color:#143b4d}
+    #adminOverlay .ab-chip .c{font-size:.62rem;opacity:.75;margin-left:.25rem}
+    #adminOverlay .ab-box{background:#fff;border:1px solid #e2ddd0;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+    #adminOverlay .ab-box .t{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#8f8073;margin-bottom:9px}
+    #adminOverlay input[type=text],#adminOverlay input[type=email],#adminOverlay input[type=date]{padding:.5rem .75rem;border:1.5px solid #e2ddd0;border-radius:8px;font-size:.82rem;color:#143b4d;outline:none;font-family:inherit}
     #adminOverlay input:focus{border-color:#c1922f}
-    #adminOverlay .ab-search{width:100%;margin-bottom:12px}
-    #adminOverlay table{width:100%;background:#fff;border:1px solid #E8E2D8;border-radius:12px;border-collapse:collapse;overflow:hidden;margin-bottom:6px}
+    #adminOverlay table{width:100%;background:#fff;border:1px solid #e2ddd0;border-radius:12px;border-collapse:collapse;overflow:hidden;margin-bottom:6px}
     #adminOverlay thead{background:#143b4d;color:#fff}
-    #adminOverlay th{padding:.75rem .8rem;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
-    #adminOverlay td{padding:.7rem .8rem;border-top:1px solid #F0EBE3;font-size:.85rem;color:#5b4a38;vertical-align:middle}
-    #adminOverlay tbody tr:hover{background:#F2EDE5}
-    #adminOverlay .ab-badge{display:inline-block;padding:.22rem .55rem;border-radius:99px;font-size:.62rem;font-weight:700;text-transform:uppercase}
-    #adminOverlay .ab-ok{background:#D1FAE5;color:#059669}#adminOverlay .ab-op{background:#e6dff5;color:#5A45A0}#adminOverlay .ab-bl{background:#FEE2E2;color:#DC2626}
-    #adminOverlay .ab-act{padding:.3rem .55rem;border:none;border-radius:5px;font-size:.68rem;font-weight:600;cursor:pointer;margin-left:.25rem}
-    #adminOverlay .ab-reset{background:#DBEAFE;color:#2563EB}#adminOverlay .ab-block{background:#FEF3C7;color:#D97706}#adminOverlay .ab-approve{background:#D1FAE5;color:#059669}
-    #adminOverlay .ab-mini{padding:.3rem;border:1px solid #E8E2D8;border-radius:5px;font-size:.7rem;color:#143b4d}
-    #adminOverlay .ab-primary{background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:.55rem 1rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:.8rem}
+    #adminOverlay th{padding:.7rem .7rem;text-align:left;font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    #adminOverlay td{padding:.65rem .7rem;border-top:1px solid #F0EBE3;font-size:.82rem;color:#5b4a38;vertical-align:middle}
+    #adminOverlay tbody tr:hover{background:#faf7f2}
+    #adminOverlay .ab-sub{font-size:.7rem;color:#8f8073}
+    #adminOverlay .ab-badge{display:inline-block;padding:.2rem .5rem;border-radius:99px;font-size:.6rem;font-weight:700;text-transform:uppercase}
+    #adminOverlay .ab-ok{background:#D1FAE5;color:#059669}
+    #adminOverlay .ab-pd{background:#FEF3C7;color:#D97706}
+    #adminOverlay .ab-bl{background:#FEE2E2;color:#DC2626}
+    #adminOverlay .ab-ms{background:#e6dff5;color:#5A45A0}
+    #adminOverlay .ab-act{padding:.28rem .5rem;border:none;border-radius:5px;font-size:.66rem;font-weight:600;cursor:pointer;margin-left:.22rem}
+    #adminOverlay .ab-approve{background:#D1FAE5;color:#059669}
+    #adminOverlay .ab-reset{background:#DBEAFE;color:#2563EB}
+    #adminOverlay .ab-block{background:#FEF3C7;color:#D97706}
+    #adminOverlay .ab-del{background:#FEE2E2;color:#DC2626}
+    #adminOverlay .ab-mini{padding:.26rem;border:1px solid #e2ddd0;border-radius:5px;font-size:.68rem;color:#143b4d;background:#fff}
+    #adminOverlay .ab-primary{background:linear-gradient(135deg,#c1922f,#d9ab44);color:#143b4d;border:none;padding:.5rem 1rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:.78rem}
+    #adminOverlay .ab-none{text-align:center;padding:1.6rem;color:#8f8073;font-size:.85rem}
   </style>
   <div class="ab-wrap">
-    <div class="ab-head"><h2>Contas & Acessos</h2><button class="ab-x" onclick="fecharAdmin()">✕</button></div>
+    <div class="ab-head"><h2>Contas &amp; Acessos</h2><button class="ab-x" onclick="fecharAdmin()">&#10005;</button></div>
     <div class="ab-stats">
-      <div class="ab-card"><div class="n">${usuarios.length}</div><div class="l">Usuárias</div></div>
-      <div class="ab-card"><div class="n" style="color:#5A45A0">${masters}</div><div class="l">Master</div></div>
-      <div class="ab-card"><div class="n">${ops}</div><div class="l">Operadoras</div></div>
-      <div class="ab-card"><div class="n">${empresas.length}</div><div class="l">Empresas</div></div>
+      <div class="ab-card"><div class="n">${nTot}</div><div class="l">Total</div></div>
+      <div class="ab-card"><div class="n" style="color:#059669">${nAtiv}</div><div class="l">Ativas</div></div>
+      <div class="ab-card"><div class="n" style="color:#D97706">${nPend}</div><div class="l">Pendentes</div></div>
+      <div class="ab-card"><div class="n" style="color:#DC2626">${nBloq}</div><div class="l">Bloqueadas</div></div>
+      <div class="ab-card"><div class="n" style="color:#c1922f">${empresas.length}</div><div class="l">Empresas</div></div>
     </div>
-    <div class="ab-box"><div class="t">Vincular um login já criado no Supabase</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="admEmail" type="email" placeholder="e-mail do login" style="flex:1;min-width:200px">
-        <input id="admNome" type="text" placeholder="nome (ex.: Márcia)" style="flex:1;min-width:160px">
-        <button class="ab-primary" onclick="admVincular()">Vincular</button>
-      </div>
-      <div style="font-size:.72rem;color:#96847d;margin-top:6px">Crie o login antes em <strong>Supabase → Authentication → Add user</strong>. Depois vincule aqui e dê acesso à(s) empresa(s) na tabela abaixo.</div>
+    <div class="ab-filters">
+      <input class="ab-search" id="admSearch" placeholder="Buscar por nome, e-mail ou negócio..." oninput="admFiltrar()">
+      <button class="ab-chip on" data-f="all" onclick="admChip(this)">Todas<span class="c">${nTot}</span></button>
+      <button class="ab-chip" data-f="pd" onclick="admChip(this)">Pendentes<span class="c">${nPend}</span></button>
+      <button class="ab-chip" data-f="ok" onclick="admChip(this)">Ativas<span class="c">${nAtiv}</span></button>
+      <button class="ab-chip" data-f="bl" onclick="admChip(this)">Bloqueadas<span class="c">${nBloq}</span></button>
     </div>
-    <input class="ab-search" id="admSearch" placeholder="Buscar por nome ou e-mail..." oninput="admFiltrar()">
-    <table><thead><tr><th>Usuária</th><th>Papel</th><th>Status</th><th>Empresas com acesso</th><th>Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=5 style="text-align:center;color:#96847d;padding:1.4rem">Nenhuma usuária vinculada ainda.</td></tr>'}</tbody></table>
+    <table><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th>Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table>
+    <div class="ab-none" id="admNone" style="display:none">Nenhuma usuária encontrada.</div>
     <div class="ab-box" style="margin-top:18px"><div class="t">Empresas</div>
       <div style="display:flex;gap:8px;margin-bottom:10px"><input id="admNovaEmp" type="text" placeholder="nome da nova empresa" style="flex:1"><button class="ab-primary" onclick="admCriarEmpresa()">＋ Criar</button></div>
-      <table><thead><tr><th>Empresa</th><th>Acessos</th><th>Atualizada</th><th>Ações</th></tr></thead><tbody>${empRows||''}</tbody></table>
+      <table><thead><tr><th>Empresa</th><th>Acessos</th><th>Atualizada</th><th>Ações</th></tr></thead><tbody>${empRows||'<tr><td colspan=4 class="ab-none">Nenhuma empresa ainda.</td></tr>'}</tbody></table>
     </div>
   </div>`;
   document.body.appendChild(d);
 }
-function admFiltrar(){const q=(document.getElementById('admSearch').value||'').toLowerCase();document.querySelectorAll('#admRows tr').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});}
-async function admVincular(){const e=(document.getElementById('admEmail').value||'').trim(),n=(document.getElementById('admNome').value||'').trim();if(!e){alert('Informe o e-mail do login criado no Supabase.');return;}const{error}=await sb.rpc('admin_vincular_usuario',{p_email:e,p_nome:n||e,p_papel:'operador'});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
-async function admDarAcesso(uid,tid){if(!tid)return;const{error}=await sb.rpc('admin_dar_acesso',{p_user:uid,p_tenant:tid,p_papel:'editor'});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
-async function admTogglePapel(uid,atual){const novo=atual==='master'?'operador':'master';if(!confirm('Mudar o papel desta usuária para '+(novo==='master'?'MASTER (vê tudo)':'operadora')+'?'))return;const{error}=await sb.rpc('admin_set_papel',{p_user:uid,p_papel:novo});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
-async function admToggleAtivo(uid,ativo){const{error}=await sb.rpc('admin_set_ativo',{p_user:uid,p_ativo:ativo});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
-async function admRenomear(tid){const nome=prompt('Novo nome da empresa:');if(!nome||!nome.trim())return;const{error}=await sb.rpc('admin_renomear_empresa',{p_tenant:tid,p_nome:nome.trim()});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
-async function admCriarEmpresa(){const n=(document.getElementById('admNovaEmp').value||'').trim();if(!n)return;const{error}=await sb.rpc('admin_criar_empresa',{p_nome:n});if(error){alert(error.message);return;}fecharAdmin();abrirAdmin();}
+let _admF='all';
+function admChip(b){document.querySelectorAll('#adminOverlay .ab-chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');_admF=b.dataset.f;admFiltrar();}
+function admFiltrar(){
+  const q=(document.getElementById('admSearch').value||'').toLowerCase();
+  let vis=0;
+  document.querySelectorAll('#admRows tr').forEach(r=>{
+    const txt=r.textContent.toLowerCase();
+    const okBusca=!q||txt.includes(q);
+    let okF=true;
+    if(_admF==='pd')okF=r.innerHTML.includes('ab-pd');
+    else if(_admF==='ok')okF=r.innerHTML.includes('ab-ok');
+    else if(_admF==='bl')okF=r.innerHTML.includes('ab-bl');
+    const show=okBusca&&okF; r.style.display=show?'':'none'; if(show)vis++;
+  });
+  const n=document.getElementById('admNone'); if(n)n.style.display=vis===0?'block':'none';
+}
+async function _admRpc(fn,args,msg){const{error}=await sb.rpc(fn,args);if(error){alert('Erro: '+error.message);return false;}if(msg)console.log(msg);fecharAdmin();abrirAdmin();return true;}
+async function admAprovar(uid){_admRpc('admin_aprovar',{p_user:uid});}
+async function admBloquear(uid){if(!confirm('Bloquear esta usuária? Ela perde o acesso na hora.'))return;_admRpc('admin_bloquear',{p_user:uid});}
+async function admExcluir(uid,nome){if(!confirm('Excluir "'+nome+'" e todos os acessos dela? Esta ação não pode ser desfeita.'))return;_admRpc('admin_excluir',{p_user:uid});}
+async function admDarAcesso(uid,tid){if(!tid)return;_admRpc('admin_dar_acesso',{p_user:uid,p_tenant:tid,p_papel:'editor'});}
+async function admSetPlano(uid,plano){
+  let exp=null;
+  if(plano!=='Interno'){
+    const v=prompt('Até quando vale o plano '+plano+'? (dd/mm/aaaa — deixe vazio para sem prazo)','');
+    if(v&&v.trim()){const p=v.trim().split('/');if(p.length===3)exp=p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}
+  }
+  _admRpc('admin_set_plano',{p_user:uid,p_plano:plano,p_expira:exp});
+}
+async function admResetSenha(uid,email){
+  if(!confirm('Enviar link de redefinição para '+email+' e exigir nova senha no próximo acesso?'))return;
+  try{await sb.auth.resetPasswordForEmail(email);}catch(e){}
+  _admRpc('admin_exigir_troca_senha',{p_user:uid});
+}
+async function admRenomear(tid){const nome=prompt('Novo nome da empresa:');if(!nome||!nome.trim())return;_admRpc('admin_renomear_empresa',{p_tenant:tid,p_nome:nome.trim()});}
+async function admExcluirEmpresa(tid,nome){if(!confirm('Excluir a empresa "'+nome+'" e TODOS os dados dela? Esta ação não pode ser desfeita.'))return;_admRpc('admin_excluir_empresa',{p_tenant:tid});}
+async function admCriarEmpresa(){const n=(document.getElementById('admNovaEmp').value||'').trim();if(!n)return;_admRpc('admin_criar_empresa',{p_nome:n});}
 boot();
 /* fim */
 </script>
