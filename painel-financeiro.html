@@ -1292,7 +1292,7 @@ let _me=null;       // {user_id,email,nome,papel,ativo}
 let _empresas=[];   // empresas que posso abrir
 async function carregarMeu(){try{const u=await cloudUser();if(!u)return null;const{data}=await sb.from('app_users').select('user_id,email,nome,papel,ativo').eq('user_id',u.id).maybeSingle();_me=data||{user_id:u.id,email:u.email,nome:u.email,papel:'operador',ativo:true};return _me;}catch(e){console.warn(e);return null;}}
 async function carregarMinhasEmpresas(){try{const{data,error}=await sb.rpc('listar_minhas_empresas');if(error){console.warn(error);return[];}return data||[];}catch(e){console.warn(e);return[];}}
-async function abrirEmpresa(tid){try{
+async function abrirTenant(tid){try{
   const{data,error}=await sb.rpc('carregar_empresa',{p_tenant:tid});
   if(error){alert('Não consegui abrir a empresa: '+error.message);return false;}
   const r=(data&&data[0])||null;
@@ -1308,7 +1308,7 @@ function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;
   if(_readonly){const t0=document.getElementById('cloudStatus');if(t0)t0.textContent='🔒 somente leitura';return;}clearTimeout(_cloudT);const go=async()=>{const t=document.getElementById('cloudStatus');try{const{data,error}=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});if(error){if(t)t.textContent='⚠ erro ao salvar';console.warn(error);return;}if(data===-1){if(t)t.textContent='⚠ salvo por outra pessoa';avisarConflito();return;}_tver=data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
 function saveApp(){if(_tenant){try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}cloudSave();}
 let _conflitoAberto=false;
-async function avisarConflito(){if(_conflitoAberto)return;_conflitoAberto=true;const ok=confirm('Esta empresa foi salva por outra pessoa (ou em outra aba) depois que você abriu.\n\nPara NÃO sobrescrever o trabalho dela, vou recarregar a versão mais recente. Alterações não salvas desta tela serão perdidas.\n\nOK = recarregar a versão mais recente.');_conflitoAberto=false;if(ok&&_tenant){await abrirEmpresa(_tenant);if(typeof render==='function')render();}}
+async function avisarConflito(){if(_conflitoAberto)return;_conflitoAberto=true;const ok=confirm('Esta empresa foi salva por outra pessoa (ou em outra aba) depois que você abriu.\n\nPara NÃO sobrescrever o trabalho dela, vou recarregar a versão mais recente. Alterações não salvas desta tela serão perdidas.\n\nOK = recarregar a versão mais recente.');_conflitoAberto=false;if(ok&&_tenant){await abrirTenant(_tenant);if(typeof render==='function')render();}}
 function reagruparEntradas(){if(!APP||!APP.perfis)return;APP.perfis.forEach(p=>{(((p.dados)||{}).categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const _n=_normEntradaNome(c.nome);if(ENTRADA_GRUPO_MAP[_n]&&!ENTRADA_GRUPO_EXCLUIR.includes(_n))c.grupo=ENTRADA_GRUPO_MAP[_n];});});}
 function loadApp(){
   const raw=localStorage.getItem(KEY);
@@ -3042,7 +3042,7 @@ async function aposLoginCloud(){
   _me={user_id:u.id,email:u.email,nome:st.nome,papel:st.papel,status:st.status,ativo:st.ativo};
   try{await sb.rpc('registrar_acesso');}catch(e){}
   _empresas=await carregarMinhasEmpresas();
-  if(_empresas.length===1){await abrirEmpresa(_empresas[0].tenant_id);}
+  if(_empresas.length===1){await abrirTenant(_empresas[0].tenant_id);}
   else{renderSeletor();}
 }
 function renderLogin(){
@@ -3167,7 +3167,7 @@ function fecharSeletor(){const o=document.getElementById('seletorOverlay');if(o)
 function renderSeletor(){
   fecharSeletor();
   const master=_me&&_me.papel==='master';
-  const cards=_empresas.map(e=>`<button onclick="abrirEmpresa('${e.tenant_id}')" style="display:block;width:100%;text-align:left;background:#eef4f5;border:1px solid rgba(193,146,47,.35);border-radius:14px;padding:15px 17px;margin:8px 0;cursor:pointer;color:#143b4d">
+  const cards=_empresas.map(e=>`<button onclick="abrirTenant('${e.tenant_id}')" style="display:block;width:100%;text-align:left;background:#eef4f5;border:1px solid rgba(193,146,47,.35);border-radius:14px;padding:15px 17px;margin:8px 0;cursor:pointer;color:#143b4d">
       <div style="font-weight:800;font-size:16px">${(e.nome||'—').replace(/</g,'&lt;')}</div>
       <div style="font-size:12px;color:#5b7480;margin-top:2px">${e.atualizado_em?('atualizado '+new Date(e.atualizado_em).toLocaleDateString('pt-BR')):'nova'} · ${e.papel}</div>
     </button>`).join('') || `<div style="color:#cfe0e6;font-size:13px;padding:10px 0">${master?'Nenhuma empresa ainda. Crie a primeira abaixo.':'Você ainda não tem acesso a nenhuma empresa. Peça à administradora para liberar.'}</div>`;
@@ -3187,7 +3187,7 @@ async function adminNovaEmpresa(){
   const nome=prompt('Nome da nova empresa/cliente:');if(!nome||!nome.trim())return;
   const{data,error}=await sb.rpc('admin_criar_empresa',{p_nome:nome.trim()});
   if(error){alert('Não consegui criar: '+error.message);return;}
-  _empresas=await carregarMinhasEmpresas();await abrirEmpresa(data);
+  _empresas=await carregarMinhasEmpresas();await abrirTenant(data);
 }
 
 /* ===================== PAINEL ADMIN (modelo SB) ===================== */
