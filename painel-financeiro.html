@@ -1285,14 +1285,27 @@ function initSb(){if(!sb&&cloudOn())sb=window.supabase.createClient(SUPABASE_URL
 async function cloudUser(){try{const{data}=await sb.auth.getUser();return data?data.user:null;}catch(e){return null;}}
 /* ===== FASE 1 — multi-empresa (tenant = empresa/cliente) ===== */
 let _tenant=null;   // empresa aberta agora
+let _readonly=false; // sócia restrita = somente leitura
+let _unidades=null;  // filiais que eu posso ver (null = todas)
 let _tver=0;        // versão carregada (trava de sobrescrita otimista)
 let _me=null;       // {user_id,email,nome,papel,ativo}
 let _empresas=[];   // empresas que posso abrir
 async function carregarMeu(){try{const u=await cloudUser();if(!u)return null;const{data}=await sb.from('app_users').select('user_id,email,nome,papel,ativo').eq('user_id',u.id).maybeSingle();_me=data||{user_id:u.id,email:u.email,nome:u.email,papel:'operador',ativo:true};return _me;}catch(e){console.warn(e);return null;}}
 async function carregarMinhasEmpresas(){try{const{data,error}=await sb.rpc('listar_minhas_empresas');if(error){console.warn(error);return[];}return data||[];}catch(e){console.warn(e);return[];}}
-async function abrirEmpresa(tid){try{const{data,error}=await sb.from('tenant_data').select('data,version').eq('tenant_id',tid).maybeSingle();if(error){alert('Não consegui abrir a empresa: '+error.message);return false;}_tenant=tid;_tver=data?data.version:0;APP=(data&&data.data&&data.data.perfis)?data.data:{perfilAtivo:null,perfis:[]};if(!APP.perfis||!APP.perfis.length){const p=novoPerfilObj('Nova empresa','');APP.perfis=[p];APP.perfilAtivo=p.id;}normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();cloudSave(true);return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
+async function abrirEmpresa(tid){try{
+  const{data,error}=await sb.rpc('carregar_empresa',{p_tenant:tid});
+  if(error){alert('Não consegui abrir a empresa: '+error.message);return false;}
+  const r=(data&&data[0])||null;
+  if(!r){alert('Empresa não encontrada ou sem acesso.');return false;}
+  _tenant=tid; _tver=r.version||0; _readonly=!!r.somente_leitura; _unidades=r.unidades||null;
+  APP=(r.data&&r.data.perfis)?r.data:{perfilAtivo:null,perfis:[]};
+  if(!APP.perfis||!APP.perfis.length){const p=novoPerfilObj('Nova empresa','');APP.perfis=[p];APP.perfilAtivo=p.id;}
+  normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();
+  if(!_readonly)cloudSave(true);
+  return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
 let _cloudT=null;
-function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;clearTimeout(_cloudT);const go=async()=>{const t=document.getElementById('cloudStatus');try{const{data,error}=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});if(error){if(t)t.textContent='⚠ erro ao salvar';console.warn(error);return;}if(data===-1){if(t)t.textContent='⚠ salvo por outra pessoa';avisarConflito();return;}_tver=data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
+function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;
+  if(_readonly){const t0=document.getElementById('cloudStatus');if(t0)t0.textContent='🔒 somente leitura';return;}clearTimeout(_cloudT);const go=async()=>{const t=document.getElementById('cloudStatus');try{const{data,error}=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});if(error){if(t)t.textContent='⚠ erro ao salvar';console.warn(error);return;}if(data===-1){if(t)t.textContent='⚠ salvo por outra pessoa';avisarConflito();return;}_tver=data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
 function saveApp(){if(_tenant){try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}cloudSave();}
 let _conflitoAberto=false;
 async function avisarConflito(){if(_conflitoAberto)return;_conflitoAberto=true;const ok=confirm('Esta empresa foi salva por outra pessoa (ou em outra aba) depois que você abriu.\n\nPara NÃO sobrescrever o trabalho dela, vou recarregar a versão mais recente. Alterações não salvas desta tela serão perdidas.\n\nOK = recarregar a versão mais recente.');_conflitoAberto=false;if(ok&&_tenant){await abrirEmpresa(_tenant);if(typeof render==='function')render();}}
@@ -3140,7 +3153,7 @@ function montarBarraNuvem(){const bar=document.querySelector('.tb-acoes');if(!ba
   let s=document.getElementById('cloudStatus');
   if(!s){s=document.createElement('span');s.id='cloudStatus';s.style.cssText='font-size:11px;color:#8f8073;margin-right:6px';bar.appendChild(s);}
   const nomeEmp=((_empresas.find(e=>e.tenant_id===_tenant)||{}).nome)||'';
-  s.textContent='☁ '+(nomeEmp?nomeEmp+' · ':'')+'nuvem';
+  s.textContent=(_readonly?'🔒 ':'☁ ')+(nomeEmp?nomeEmp+' · ':'')+(_readonly?('somente leitura'+(_unidades&&_unidades.length?' · '+_unidades.join(', '):'')):'nuvem');
   const sis=document.getElementById('sbSistema');if(sis)sis.style.display=(_me&&_me.papel==='master')?'':'none';
   if(document.getElementById('btnBarSair'))return;
   const mk=(txt,fn)=>{const b=document.createElement('button');b.className='btn peq sec';b.textContent=txt;b.onclick=fn;bar.appendChild(b);return b;};
@@ -3212,7 +3225,7 @@ async function abrirAdmin(){
      <td>${badge}${u.senha_trocada===false?'<div class="ab-sub" style="color:#D97706">senha provisória</div>':''}</td>
      <td class="ab-sub">${(u.empresas||'—').replace(/</g,'&lt;')}</td>
      <td style="white-space:nowrap">${acoes.join('')}</td></tr>`;}).join('');
-  const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
+  const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-approve" onclick="admAcessos('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Acessos</button><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
   const d=document.createElement('div');d.id='adminOverlay';
   d.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(14,40,51,.55);backdrop-filter:blur(4px);overflow:auto;padding:26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
   d.innerHTML=`<style>
@@ -3317,6 +3330,47 @@ async function admResetSenha(uid,email){
 async function admRenomear(tid){const nome=prompt('Novo nome da empresa:');if(!nome||!nome.trim())return;_admRpc('admin_renomear_empresa',{p_tenant:tid,p_nome:nome.trim()});}
 async function admExcluirEmpresa(tid,nome){if(!confirm('Excluir a empresa "'+nome+'" e TODOS os dados dela? Esta ação não pode ser desfeita.'))return;_admRpc('admin_excluir_empresa',{p_tenant:tid});}
 async function admCriarEmpresa(){const n=(document.getElementById('admNovaEmp').value||'').trim();if(!n)return;_admRpc('admin_criar_empresa',{p_nome:n});}
+async function admAcessos(tid,nome){
+  window._acsTid=tid; if(nome)window._acsNome=nome;
+  const o0=document.getElementById('acsOverlay'); if(o0)o0.remove();
+  const[ac,un]=await Promise.all([sb.rpc('admin_acessos_da_empresa',{p_tenant:tid}),sb.rpc('admin_unidades_da_empresa',{p_tenant:tid})]);
+  if(ac.error){alert('Erro: '+ac.error.message);return;}
+  const users=ac.data||[], unis=(un.data||[]);
+  const S={sub:'font-size:.7rem;color:#8f8073',bd:'display:inline-block;padding:.18rem .5rem;border-radius:99px;font-size:.6rem;font-weight:700;text-transform:uppercase',
+           th:'padding:.6rem;text-align:left;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em',
+           td:'padding:.6rem;border-top:1px solid #F0EBE3;font-size:.8rem;color:#5b4a38;vertical-align:middle',
+           act:'padding:.28rem .5rem;border:none;border-radius:5px;font-size:.66rem;font-weight:600;cursor:pointer;margin-left:.22rem'};
+  const linhas=users.map(u=>{
+    const marc=u.unidades||null, rest=!!(marc&&marc.length);
+    const chks=unis.map(x=>`<label style="margin-right:12px;font-size:.75rem;white-space:nowrap"><input type="checkbox" data-u="${u.user_id}" value="${String(x).replace(/"/g,'&quot;')}" ${rest&&marc.indexOf(x)>=0?'checked':''}> ${x}</label>`).join('');
+    return `<tr>
+      <td style="${S.td}"><strong>${(u.nome||'—')}</strong><br><span style="${S.sub}">${u.email||''}</span></td>
+      <td style="${S.td}">${rest?`<span style="${S.bd};background:#FEF3C7;color:#D97706">Só filial</span>`:`<span style="${S.bd};background:#D1FAE5;color:#059669">Empresa inteira</span>`}<div style="${S.sub}">${u.papel}</div></td>
+      <td style="${S.td}">${unis.length?chks:`<span style="${S.sub}">esta empresa ainda não tem filiais cadastradas</span>`}</td>
+      <td style="${S.td};white-space:nowrap"><button style="${S.act};background:#DBEAFE;color:#2563EB" onclick="admSalvarUnidades('${u.user_id}','${tid}')">Salvar filiais</button><button style="${S.act};background:#D1FAE5;color:#059669" onclick="admSalvarUnidades('${u.user_id}','${tid}',true)">Empresa inteira</button></td></tr>`;}).join('');
+  const d=document.createElement('div'); d.id='acsOverlay';
+  d.style.cssText="position:fixed;inset:0;z-index:320;background:rgba(14,40,51,.6);backdrop-filter:blur(4px);overflow:auto;padding:30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  d.innerHTML=`<div style="max-width:920px;margin:0 auto;background:#FFFEFB;border-radius:16px;padding:22px 24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2ddd0;padding-bottom:12px;margin-bottom:12px">
+      <h3 style="margin:0;font-family:Georgia,serif;color:#143b4d;font-size:1.25rem">Acessos · ${(window._acsNome||'')}</h3>
+      <button onclick="document.getElementById('acsOverlay').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#8f8073">&#10005;</button></div>
+    <div style="font-size:.78rem;color:#8f8073;margin-bottom:12px;line-height:1.5">Marque as filiais para <b>restringir</b> (caso da sócia que só pode ver a unidade dela). Sem nenhuma marcada = <b>empresa inteira</b>. Quem fica restrito entra como <b>somente leitura</b>, e o banco só entrega os dados daquela filial — as outras nem chegam no navegador dela.</div>
+    <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2ddd0;border-radius:10px;overflow:hidden">
+      <thead style="background:#143b4d;color:#fff"><tr><th style="${S.th}">Pessoa</th><th style="${S.th}">Hoje</th><th style="${S.th}">Filiais</th><th style="${S.th}">Ações</th></tr></thead>
+      <tbody>${linhas||`<tr><td colspan=4 style="padding:1.3rem;text-align:center;color:#8f8073;font-size:.85rem">Ninguém tem acesso a esta empresa ainda. Libere pelo "+ empresa…" na lista de usuárias.</td></tr>`}</tbody></table>
+  </div>`;
+  document.body.appendChild(d);
+}
+async function admSalvarUnidades(uid,tid,inteira){
+  let arr=null;
+  if(!inteira){
+    arr=[...document.querySelectorAll('#acsOverlay input[type=checkbox][data-u="'+uid+'"]:checked')].map(c=>c.value);
+    if(!arr.length)arr=null;
+  }
+  const{error}=await sb.rpc('admin_set_unidades',{p_user:uid,p_tenant:tid,p_unidades:arr});
+  if(error){alert('Erro: '+error.message);return;}
+  admAcessos(tid);
+}
 boot();
 /* fim */
 </script>
