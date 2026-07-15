@@ -3432,10 +3432,11 @@ async function abrirAdmin(){
 .ab-empd[open]>summary.ab-empbtn::after{transform:rotate(-135deg) translate(-3px,-3px)}
 .ab-emppop{position:fixed;z-index:400;width:290px;max-height:min(300px,50vh);overflow-y:auto;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:12px;box-shadow:0 16px 40px -12px rgba(20,59,77,.3);padding:13px}
 .ab-emppop-l{display:block;font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#a4907c;margin-bottom:9px;line-height:1.4}
-.ab-empgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:7px}
-.ab-empopt{display:flex;align-items:flex-start;gap:8px;background:#fff;border:1px solid #e2ddd0;border-radius:9px;padding:9px 11px;font-size:.72rem;line-height:1.35;color:#143b4d;cursor:pointer;transition:border-color .12s,background .12s;user-select:none}
+.ab-empgrid{display:flex;flex-direction:column;gap:6px}
+.ab-empopt{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e2ddd0;border-radius:9px;padding:10px 12px;font-size:.75rem;line-height:1.4;color:#143b4d;cursor:pointer;transition:border-color .12s,background .12s;user-select:none}
+.ab-empopt span{flex:1;min-width:0}
 .ab-empopt:hover{border-color:#c1922f}
-.ab-empopt input[type=checkbox]{width:14px;height:14px;min-width:14px;padding:0;margin:1px 0 0;accent-color:#c1922f;cursor:pointer;flex:none}
+.ab-empopt input[type=checkbox]{width:15px;height:15px;min-width:15px;padding:0;margin:0;accent-color:#c1922f;cursor:pointer;flex:none}
 .ab-empopt:has(input:checked){background:#FDF8EE;border-color:#c1922f;font-weight:600}
 
     #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d;line-height:1}
