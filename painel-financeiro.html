@@ -3349,7 +3349,9 @@ function _dt(v){return v?new Date(v).toLocaleDateString('pt-BR'):'—';}
 async function abrirAdmin(){
   if(!(_me&&_me.papel==='master')){alert('Apenas a administradora.');return;}
   const[us,em]=await Promise.all([sb.rpc('admin_listar_usuarios'),sb.rpc('admin_listar_empresas')]);
-  if(us.error){alert('Erro: '+us.error.message);return;}
+  if(us.error){alert('Não consegui carregar as contas: '+us.error.message);return;}
+  /* o erro das empresas era engolido: virava [] e a tela mentia "Nenhuma empresa ainda" */
+  if(em.error){alert('Não consegui carregar as empresas: '+em.error.message+'\n\nSuas empresas NÃO foram apagadas — foi falha ao ler. Feche e abra o Admin de novo.');return;}
   const usuarios=us.data||[],empresas=(em.data||[]);
   const nTot=usuarios.length,
         nPend=usuarios.filter(u=>u.status==='pendente').length,
@@ -3517,7 +3519,9 @@ async function admAcessos(tid,nome){
   window._acsTid=tid; if(nome)window._acsNome=nome;
   const o0=document.getElementById('acsOverlay'); if(o0)o0.remove();
   const[ac,un]=await Promise.all([sb.rpc('admin_acessos_da_empresa',{p_tenant:tid}),sb.rpc('admin_unidades_da_empresa',{p_tenant:tid})]);
-  if(ac.error){alert('Erro: '+ac.error.message);return;}
+  if(ac.error){alert('Não consegui carregar os acessos: '+ac.error.message);return;}
+  /* mesmo bug do abrirAdmin: o erro das unidades virava [] e a tela dizia que não havia filial */
+  if(un.error){alert('Não consegui carregar as filiais: '+un.error.message+'\n\nNada foi apagado — foi falha ao ler. Tente de novo.');return;}
   const users=ac.data||[], unis=(un.data||[]);
   const S={sub:'font-size:.7rem;color:#8f8073',bd:'display:inline-block;padding:.18rem .5rem;border-radius:99px;font-size:.6rem;font-weight:700;text-transform:uppercase',
            th:'padding:.6rem;text-align:left;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em',
