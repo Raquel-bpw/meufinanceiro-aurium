@@ -3310,18 +3310,31 @@ async function abrirAdmin(){
      <td>${_dt(u.criado_em)}</td>
      <td>${u.ultimo_acesso?_dt(u.ultimo_acesso):'<span class="ab-sub">nunca</span>'}</td>
      <td>${badge}${u.senha_trocada===false?'<div class="ab-sub" style="color:#D97706">senha provisória</div>':''}</td>
-     <td class="ab-sub">${(u.empresas||'—').replace(/</g,'&lt;')}</td>
+     <td class="ab-emp" data-emp="${(u.empresas||'').replace(/"/g,'&quot;')}">${(()=>{const _l=(u.empresas||'').split(', ').filter(Boolean);
+       if(!_l.length)return '<span class="ab-sub">—</span>';
+       return `<span class="ab-pill" title="${_l.join(' · ').replace(/"/g,'&quot;')}">${_l.length===1?_l[0].replace(/</g,'&lt;'):_l.length+' empresas'}</span>`;})()}</td>
      <td style="white-space:nowrap;text-align:right">${acoes.join('')}</td></tr>`;}).join('');
   const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-approve" onclick="admAcessos('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Acessos</button><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
   const d=document.createElement('div');d.id='adminOverlay';
   d.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(14,40,51,.55);backdrop-filter:blur(4px);overflow:auto;padding:26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
   d.innerHTML=`<style>
-    #adminOverlay .ab-wrap{max-width:1280px;margin:0 auto;background:#FFFEFB;border-radius:18px;padding:24px 26px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
+    #adminOverlay .ab-wrap{max-width:min(1640px,96vw);margin:0 auto;background:#FFFEFB;border-radius:18px;padding:24px 28px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
     #adminOverlay h2{font-family:Georgia,serif;color:#143b4d;font-size:1.5rem;margin:0}
     #adminOverlay .ab-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2ddd0;padding-bottom:14px;margin-bottom:18px}
     #adminOverlay .ab-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#8f8073}
     #adminOverlay .ab-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px}
     #adminOverlay .ab-card{background:#fff;border:1px solid #e2ddd0;border-radius:12px;padding:14px;text-align:center}
+.ab-empfil{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:11px 14px;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:11px}
+.ab-empfil-l{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#a4907c;margin-right:2px}
+.ab-box{display:inline-flex;align-items:center;gap:6px;font-size:.73rem;color:#143b4d;background:#fff;border:1px solid #e2ddd0;border-radius:20px;padding:5px 11px 5px 8px;cursor:pointer;transition:.15s;user-select:none;max-width:260px}
+.ab-box:hover{border-color:#c1922f;background:#FFFDF7}
+.ab-box input{accent-color:#c1922f;cursor:pointer;margin:0;flex:none}
+.ab-box:has(input:checked){background:#143b4d;color:#fff;border-color:#143b4d;font-weight:600}
+.ab-empfil-x{background:none;border:none;color:#a4907c;font-size:.7rem;cursor:pointer;text-decoration:underline;margin-left:auto;padding:4px}
+.ab-empfil-x:hover{color:#143b4d}
+.ab-emp{white-space:nowrap}
+.ab-pill{display:inline-block;font-size:.68rem;font-weight:600;color:#143b4d;background:#F1EDE3;border:1px solid #E4DCCD;border-radius:20px;padding:3px 10px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;cursor:default}
+
     #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d;line-height:1}
     #adminOverlay .ab-card .l{font-size:.64rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#8f8073;margin-top:5px}
     #adminOverlay .ab-filters{display:flex;gap:.7rem;align-items:center;margin-bottom:14px;flex-wrap:wrap}
@@ -3371,6 +3384,11 @@ async function abrirAdmin(){
       <button class="ab-chip" data-f="ok" onclick="admChip(this)">Ativas<span class="c">${nAtiv}</span></button>
       <button class="ab-chip" data-f="bl" onclick="admChip(this)">Bloqueadas<span class="c">${nBloq}</span></button>
     </div>
+    <div class="ab-empfil">
+      <span class="ab-empfil-l">Empresa</span>
+      ${empresas.map(e=>`<label class="ab-box"><input type="checkbox" value="${(e.nome||'').replace(/"/g,'&quot;')}" onchange="admFiltrar()">${(e.nome||'').replace(/</g,'&lt;')}</label>`).join('')}
+      <button class="ab-empfil-x" onclick="admLimparEmp()">limpar</button>
+    </div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="min-width:1120px"><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th style="text-align:right">Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table></div>
     <div class="ab-none" id="admNone" style="display:none">Nenhuma usuária encontrada.</div>
     <div class="ab-box" style="margin-top:18px"><div class="t">Empresas</div>
@@ -3382,8 +3400,10 @@ async function abrirAdmin(){
 }
 let _admF='all';
 function admChip(b){document.querySelectorAll('#adminOverlay .ab-chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');_admF=b.dataset.f;admFiltrar();}
+function admLimparEmp(){document.querySelectorAll('.ab-empfil input[type=checkbox]').forEach(c=>c.checked=false);admFiltrar();}
 function admFiltrar(){
   const q=(document.getElementById('admSearch').value||'').toLowerCase();
+  const marcadas=[...document.querySelectorAll('.ab-empfil input[type=checkbox]:checked')].map(c=>c.value);
   let vis=0;
   document.querySelectorAll('#admRows tr').forEach(r=>{
     const txt=r.textContent.toLowerCase();
@@ -3392,7 +3412,10 @@ function admFiltrar(){
     if(_admF==='pd')okF=r.innerHTML.includes('ab-pd');
     else if(_admF==='ok')okF=r.innerHTML.includes('ab-ok');
     else if(_admF==='bl')okF=r.innerHTML.includes('ab-bl');
-    const show=okBusca&&okF; r.style.display=show?'':'none'; if(show)vis++;
+    let okEmp=true;
+    if(marcadas.length){const cel=r.querySelector('.ab-emp');const lista=cel?(cel.dataset.emp||''):'';
+      okEmp=marcadas.some(m=>lista.split(', ').includes(m));}
+    const show=okBusca&&okF&&okEmp; r.style.display=show?'':'none'; if(show)vis++;
   });
   const n=document.getElementById('admNone'); if(n)n.style.display=vis===0?'block':'none';
 }
