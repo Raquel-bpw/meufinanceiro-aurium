@@ -1304,7 +1304,12 @@ async function abrirTenant(tid){try{
   if(!r){alert('Empresa não encontrada ou sem acesso.');return false;}
   _tenant=tid; _tver=r.version||0; _readonly=!!r.somente_leitura; _unidades=r.unidades||null;
   APP=(r.data&&r.data.perfis)?r.data:{perfilAtivo:null,perfis:[]};
-  if(!APP.perfis||!APP.perfis.length){const p=novoPerfilObj('Nova empresa','');APP.perfis=[p];APP.perfilAtivo=p.id;}
+  const _ne=((_empresas||[]).find(e=>e.tenant_id===tid)||{}).nome||'Minha empresa';
+  if(!APP.perfis||!APP.perfis.length){const p=novoPerfilObj(_ne,'');APP.perfis=[p];APP.perfilAtivo=p.id;}
+  else if(APP.perfis.length===1&&(APP.perfis[0].nome==='Nova empresa'||!APP.perfis[0].nome)){
+    /* repara o perfil fantasma criado por versão anterior do app */
+    APP.perfis[0].nome=_ne;
+    if(APP.perfis[0].dados&&APP.perfis[0].dados.cliente&&!APP.perfis[0].dados.cliente.razaoSocial)APP.perfis[0].dados.cliente.razaoSocial=_ne;}
   normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();
   if(!_readonly)cloudSave(true);
   return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
