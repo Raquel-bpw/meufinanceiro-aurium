@@ -1054,7 +1054,7 @@
       </div>
       <div class="mini" id="ultimoBackupTxt" style="margin-top:12px">Último backup: —</div>
     </div>
-    <div class="alerta ok"><span>🔒</span><div><b>Seus dados na nuvem, isolados por conta:</b> tudo é salvo com segurança na nuvem (Supabase), e cada conta só enxerga os próprios dados. Faça backup pelo menu de vez em quando.</div></div>
+    <div class="alerta ok"><span>🔒</span><div><b>Seus dados, protegidos e isolados por conta:</b> cada acesso enxerga apenas as próprias informações. Faça backup pelo menu de vez em quando.</div></div>
     <div class="card"><div class="help">
       <p><b>E as conexões automáticas?</b> No futuro entram aqui — conectar o banco para importar o extrato sozinho, ou o sistema da clínica para puxar os atendimentos. Por enquanto, a entrada de dados é pela aba Importar, com PDF, CSV, OFX ou Excel. As integrações automáticas dependem da versão na nuvem, com servidor — quando você decidir esse passo, elas entram aqui.</p>
     </div></div>
@@ -1109,16 +1109,29 @@
   </section>
 </main>
   <div class="rodape-fin">
-    <div class="alerta ok"><span>🔒</span><div><b>Seus dados na nuvem, isolados por conta:</b> tudo é salvo com segurança na nuvem (Supabase), e cada conta só enxerga os próprios dados. Faça backup pelo menu de vez em quando.</div></div>
-    <footer style="text-align:center; padding:36px 0; background:#f5f2ee;">
-      <div style="width:60px; height:2px; background:#b8963e; margin:0 auto 20px;"></div>
-      <div style="font-family:Georgia,serif; font-style:italic; font-size:22px; color:#3d7ea6;">
-        INTEIRA Tech
-      </div>
-      <div style="font-size:11px; letter-spacing:3px; color:#b8963e; margin-top:8px; text-transform:uppercase;">
-        Grupo Cezarys
-      </div>
-    </footer>
+    <style>
+      .rf-premium{max-width:520px;margin:10px auto 0;text-align:center;padding:26px 30px 24px;border-radius:16px;
+        background:linear-gradient(160deg,#1c4d61 0%,#143b4d 100%);
+        border:1px solid rgba(216,171,68,.22);box-shadow:0 16px 36px -20px rgba(20,59,77,.6);}
+      .rf-segt{display:flex;align-items:center;justify-content:center;gap:7px;font-size:9px;letter-spacing:2.6px;
+        text-transform:uppercase;color:#d9ab44;font-weight:600}
+      .rf-gestao{font-family:Georgia,serif;font-size:22px;color:#fff;margin-top:13px;line-height:1.35}
+      .rf-gestao em{color:#d9ab44;font-style:italic}
+      .rf-nw{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:18px}
+      .rf-nw .ln{height:1px;width:30px;background:rgba(216,171,68,.35)}
+      .rf-nome{font-family:Georgia,serif;font-size:18px;color:#fff;letter-spacing:.2px}
+      .rf-nome .tech{color:#d9ab44;font-style:italic}
+      .rf-tag{font-size:11.5px;color:#cfe0e6;margin-top:8px}
+      .rf-by{font-size:9.5px;letter-spacing:1.2px;color:#8fa9b4;margin-top:5px}
+      @media(max-width:640px){.rf-gestao{font-size:19px}.rf-nome{font-size:16px}.rf-premium{padding:22px 18px 20px}}
+    </style>
+    <div class="rf-premium">
+      <div class="rf-segt"><svg width="10" height="12" viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5 L21.5 5.2 v8.6 c0 6.2-4.2 10.8-9.5 12.4C6.7 24.6 2.5 20 2.5 13.8V5.2z" fill="none" stroke="#d9ab44" stroke-width="2"/><path d="M8 14 l2.8 2.8 5.2-5.8" fill="none" stroke="#d9ab44" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Ambiente privado e protegido</div>
+      <div class="rf-gestao">Menos planilha, <em>mais clareza.</em></div>
+      <div class="rf-nw"><i class="ln"></i><div class="rf-nome">INTEIRA <span class="tech">Tech</span></div><i class="ln"></i></div>
+      <div class="rf-tag">Gestão com estratégia, direção e liberdade.</div>
+      <div class="rf-by">Uma empresa do Grupo Cezarys</div>
+    </div>
   </div>
   </div>
 </div>
