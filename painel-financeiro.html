@@ -3326,10 +3326,10 @@ async function abrirAdmin(){
     #adminOverlay .ab-card{background:#fff;border:1px solid #e2ddd0;border-radius:12px;padding:14px;text-align:center}
 .ab-empfil{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:11px 14px;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:11px}
 .ab-empfil-l{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#a4907c;margin-right:2px}
-.ab-box{display:inline-flex;align-items:center;gap:6px;font-size:.73rem;color:#143b4d;background:#fff;border:1px solid #e2ddd0;border-radius:20px;padding:5px 11px 5px 8px;cursor:pointer;transition:.15s;user-select:none;max-width:260px}
-.ab-box:hover{border-color:#c1922f;background:#FFFDF7}
-.ab-box input{accent-color:#c1922f;cursor:pointer;margin:0;flex:none}
-.ab-box:has(input:checked){background:#143b4d;color:#fff;border-color:#143b4d;font-weight:600}
+.ab-empchk{display:inline-flex;align-items:center;gap:7px;font-size:.73rem;color:#143b4d;background:#fff;border:1px solid #e2ddd0;border-radius:20px;padding:5px 12px 5px 9px;cursor:pointer;transition:.15s;user-select:none;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.ab-empchk:hover{border-color:#c1922f;background:#FFFDF7}
+.ab-empchk input[type=checkbox]{width:14px;height:14px;min-width:14px;padding:0;margin:0;border-radius:3px;accent-color:#c1922f;cursor:pointer;flex:none}
+.ab-empchk:has(input:checked){background:#143b4d;color:#fff;border-color:#143b4d;font-weight:600}
 .ab-empfil-x{background:none;border:none;color:#a4907c;font-size:.7rem;cursor:pointer;text-decoration:underline;margin-left:auto;padding:4px}
 .ab-empfil-x:hover{color:#143b4d}
 .ab-emp{white-space:nowrap}
@@ -3386,7 +3386,7 @@ async function abrirAdmin(){
     </div>
     <div class="ab-empfil">
       <span class="ab-empfil-l">Empresa</span>
-      ${empresas.map(e=>`<label class="ab-box"><input type="checkbox" value="${(e.nome||'').replace(/"/g,'&quot;')}" onchange="admFiltrar()">${(e.nome||'').replace(/</g,'&lt;')}</label>`).join('')}
+      ${empresas.map(e=>`<label class="ab-empchk" title="${(e.nome||'').replace(/"/g,'&quot;')}"><input type="checkbox" value="${(e.nome||'').replace(/"/g,'&quot;')}" onchange="admFiltrar()">${(e.nome||'').replace(/</g,'&lt;')}</label>`).join('')}
       <button class="ab-empfil-x" onclick="admLimparEmp()">limpar</button>
     </div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="min-width:1120px"><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th style="text-align:right">Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table></div>
@@ -3400,10 +3400,10 @@ async function abrirAdmin(){
 }
 let _admF='all';
 function admChip(b){document.querySelectorAll('#adminOverlay .ab-chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');_admF=b.dataset.f;admFiltrar();}
-function admLimparEmp(){document.querySelectorAll('.ab-empfil input[type=checkbox]').forEach(c=>c.checked=false);admFiltrar();}
+function admLimparEmp(){document.querySelectorAll('.ab-empchk input[type=checkbox]').forEach(c=>c.checked=false);admFiltrar();}
 function admFiltrar(){
   const q=(document.getElementById('admSearch').value||'').toLowerCase();
-  const marcadas=[...document.querySelectorAll('.ab-empfil input[type=checkbox]:checked')].map(c=>c.value);
+  const marcadas=[...document.querySelectorAll('.ab-empchk input[type=checkbox]:checked')].map(c=>c.value);
   let vis=0;
   document.querySelectorAll('#admRows tr').forEach(r=>{
     const txt=r.textContent.toLowerCase();
