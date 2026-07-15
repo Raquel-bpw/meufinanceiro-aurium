@@ -3161,23 +3161,27 @@ function initApos(){
 async function boot(){
   if(!cloudOn()){init();return;}
   initSb();
-  try{const{data}=await sb.auth.getSession();if(data&&data.session){await aposLoginCloud();return;}}catch(e){console.warn(e);}
+  /* cobre a tela ANTES de qualquer await: quem ja tem sessao via o painel exposto
+     desde o primeiro pixel ate o seletor cobrir. aposLoginCloud fecha no fim. */
   renderLogin();
+  try{const{data}=await sb.auth.getSession();if(data&&data.session){await aposLoginCloud();return;}}catch(e){console.warn(e);}
 }
 async function meuStatus(){try{const{data,error}=await sb.rpc('meu_status');if(error){console.warn(error);return null;}return (data&&data[0])||null;}catch(e){console.warn(e);return null;}}
 async function aposLoginCloud(){
-  fecharLogin();
+  /* NAO fecha o login aqui. Os await abaixo levam ~1s e o painel aparecia por tras
+     nesse intervalo (o "flash" da ferramenta antes do seletor). Regra: renderiza o
+     destino PRIMEIRO, fecha o login DEPOIS -> nunca existe tela descoberta. */
   const u=await cloudUser(); if(!u){renderLogin();return;}
   const st=await meuStatus();
-  if(!st){renderAviso('Cadastro em análise','Recebemos o seu cadastro. Assim que a administradora aprovar, você recebe o acesso por aqui.');return;}
-  if(st.status==='bloqueado'||st.ativo===false){renderAviso('Acesso bloqueado','Sua conta está bloqueada. Fale com a administradora para reativar.','&#128274;');return;}
-  if(st.status==='pendente'){renderAviso('Cadastro em análise','Recebemos o seu cadastro. Assim que a administradora aprovar, você recebe o acesso por aqui.');return;}
-  if(st.senha_trocada===false){renderTrocaSenha();return;}
+  if(!st){renderAviso('Cadastro em análise','Recebemos o seu cadastro. Assim que a administradora aprovar, você recebe o acesso por aqui.');fecharLogin();return;}
+  if(st.status==='bloqueado'||st.ativo===false){renderAviso('Acesso bloqueado','Sua conta está bloqueada. Fale com a administradora para reativar.','&#128274;');fecharLogin();return;}
+  if(st.status==='pendente'){renderAviso('Cadastro em análise','Recebemos o seu cadastro. Assim que a administradora aprovar, você recebe o acesso por aqui.');fecharLogin();return;}
+  if(st.senha_trocada===false){renderTrocaSenha();fecharLogin();return;}
   _me={user_id:u.id,email:u.email,nome:st.nome,papel:st.papel,status:st.status,ativo:st.ativo};
   try{await sb.rpc('registrar_acesso');}catch(e){}
   _empresas=await carregarMinhasEmpresas();
-  if(_empresas.length===1){await abrirTenant(_empresas[0].tenant_id);}
-  else{renderSeletor();}
+  if(_empresas.length===1){await abrirTenant(_empresas[0].tenant_id);fecharLogin();}
+  else{renderSeletor();fecharLogin();}
 }
 function renderLogin(){
   if(document.getElementById('loginOverlay'))return;
@@ -3378,11 +3382,7 @@ async function abrirAdmin(){
     const planoSel=`<select class="ab-mini" onchange="admSetPlano('${u.user_id}',this.value)">${PLANOS.map(p=>`<option ${u.plano===p?'selected':''}>${p}</option>`).join('')}</select>`;
     const acoes=[];
     if(u.status==='pendente')acoes.push(`<button class="ab-act ab-approve" onclick="admAprovar('${u.user_id}')">Aprovar</button>`);
-    const _tem=(u.empresas||'').split(', ').filter(Boolean);
-    acoes.push(`<span class="ab-acx">${empresas.map(e=>{
-      const _n=(e.nome||''), _m=_tem.indexOf(_n)>=0;
-      return `<label class="ab-empchk ab-acx-i" title="${_m?'Tem acesso':'Sem acesso'} · ${_n.replace(/"/g,'&quot;')}"><input type="checkbox" ${_m?'checked':''} onchange="admToggleAcesso('${u.user_id}','${e.tenant_id}',this.checked,'${_n.replace(/'/g,"")}')">${_n.replace(/</g,'&lt;')}</label>`;
-    }).join('')||'<span class="ab-sub">nenhuma empresa criada</span>'}</span>`);
+
     acoes.push(`<button class="ab-act ab-reset" onclick="admResetSenha('${u.user_id}','${(u.email||'').replace(/'/g,"")}')">Resetar senha</button>`);
     if(u.status!=='bloqueado')acoes.push(`<button class="ab-act ab-block" onclick="admBloquear('${u.user_id}')">Bloquear</button>`);
     else acoes.push(`<button class="ab-act ab-approve" onclick="admAprovar('${u.user_id}')">Reativar</button>`);
@@ -3394,9 +3394,16 @@ async function abrirAdmin(){
      <td>${_dt(u.criado_em)}</td>
      <td>${u.ultimo_acesso?_dt(u.ultimo_acesso):'<span class="ab-sub">nunca</span>'}</td>
      <td>${badge}${u.senha_trocada===false?'<div class="ab-sub" style="color:#D97706">senha provisória</div>':''}</td>
-     <td class="ab-emp" data-emp="${(u.empresas||'').replace(/"/g,'&quot;')}">${(()=>{const _l=(u.empresas||'').split(', ').filter(Boolean);
-       if(!_l.length)return '<span class="ab-sub">—</span>';
-       return `<span class="ab-pill" title="${_l.join(' · ').replace(/"/g,'&quot;')}">${_l.length===1?_l[0].replace(/</g,'&lt;'):_l.length+' empresas'}</span>`;})()}</td>
+     <td class="ab-emp" data-emp="${(u.empresas||'').replace(/"/g,'&quot;')}">${(()=>{
+       const _l=(u.empresas||'').split(', ').filter(Boolean);
+       const _rot=!_l.length?'nenhuma':(_l.length===1?_l[0]:_l.length+' empresas');
+       if(!empresas.length)return '<span class="ab-sub">—</span>';
+       return `<details class="ab-empd">
+         <summary class="ab-empbtn ${_l.length?'on':''}" title="${_l.join(' · ').replace(/"/g,'&quot;')}">${_rot.replace(/</g,'&lt;')}</summary>
+         <div class="ab-emppop">${empresas.map(e=>{
+           const _n=(e.nome||''), _m=_l.indexOf(_n)>=0;
+           return `<label class="ab-empopt"><input type="checkbox" ${_m?'checked':''} onchange="admToggleAcesso('${u.user_id}','${e.tenant_id}',this.checked,'${_n.replace(/'/g,"")}')"><span>${_n.replace(/</g,'&lt;')}</span></label>`;
+         }).join('')}</div></details>`;})()}</td>
      <td style="white-space:nowrap;text-align:right">${acoes.join('')}</td></tr>`;}).join('');
   const empRows=empresas.map(e=>`<tr><td><strong>${(e.nome||'—').replace(/</g,'&lt;')}</strong></td><td>${e.n_usuarios||0} com acesso</td><td>${_dt(e.atualizado_em)}</td><td style="white-space:nowrap"><button class="ab-act ab-approve" onclick="admAcessos('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Acessos</button><button class="ab-act ab-reset" onclick="admRenomear('${e.tenant_id}')">Renomear</button><button class="ab-act ab-del" onclick="admExcluirEmpresa('${e.tenant_id}','${(e.nome||'').replace(/'/g,"")}')">Excluir</button></td></tr>`).join('');
   const d=document.createElement('div');d.id='adminOverlay';
@@ -3408,19 +3415,20 @@ async function abrirAdmin(){
     #adminOverlay .ab-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#8f8073}
     #adminOverlay .ab-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px}
     #adminOverlay .ab-card{background:#fff;border:1px solid #e2ddd0;border-radius:12px;padding:14px;text-align:center}
-.ab-empfil{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:11px 14px;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:11px}
-.ab-empfil-l{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#a4907c;margin-right:2px}
-.ab-empchk{display:inline-flex;align-items:center;gap:7px;font-size:.73rem;color:#143b4d;background:#fff;border:1px solid #e2ddd0;border-radius:20px;padding:5px 12px 5px 9px;cursor:pointer;transition:.15s;user-select:none;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
-.ab-empchk:hover{border-color:#c1922f;background:#FFFDF7}
-.ab-empchk input[type=checkbox]{width:14px;height:14px;min-width:14px;padding:0;margin:0;border-radius:3px;accent-color:#c1922f;cursor:pointer;flex:none}
-.ab-empchk:has(input:checked){background:#143b4d;color:#fff;border-color:#143b4d;font-weight:600}
-.ab-acx{display:inline-flex;gap:5px;align-items:center;vertical-align:middle;max-width:270px;overflow-x:auto;padding:2px}
-.ab-acx-i{font-size:.66rem;padding:4px 9px 4px 7px;max-width:120px;gap:5px}
-.ab-acx-i input[type=checkbox]{width:12px;height:12px;min-width:12px}
-.ab-empfil-x{background:none;border:none;color:#a4907c;font-size:.7rem;cursor:pointer;text-decoration:underline;margin-left:auto;padding:4px}
-.ab-empfil-x:hover{color:#143b4d}
-.ab-emp{white-space:nowrap}
-.ab-pill{display:inline-block;font-size:.68rem;font-weight:600;color:#143b4d;background:#F1EDE3;border:1px solid #E4DCCD;border-radius:20px;padding:3px 10px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;cursor:default}
+.ab-emp{white-space:nowrap;position:relative}
+.ab-empd{position:relative;display:inline-block}
+.ab-empd>summary{list-style:none;cursor:pointer}
+.ab-empd>summary::-webkit-details-marker{display:none}
+.ab-empbtn{display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:600;color:#8f8073;background:#fff;border:1px solid #e2ddd0;border-radius:8px;padding:6px 11px;max-width:180px;white-space:nowrap;transition:.15s;user-select:none}
+.ab-empbtn::after{content:'⌄';font-size:.85rem;line-height:1;opacity:.55;margin-left:auto}
+.ab-empbtn:hover{border-color:#c1922f}
+.ab-empbtn.on{color:#143b4d;background:#F1EDE3;border-color:#E4DCCD}
+.ab-empd[open]>summary{border-color:#c1922f;background:#FFFDF7;color:#143b4d}
+.ab-emppop{position:absolute;z-index:60;top:calc(100% + 5px);left:0;min-width:230px;max-width:320px;max-height:260px;overflow-y:auto;background:#fff;border:1px solid #E4DCCD;border-radius:11px;box-shadow:0 14px 34px -10px rgba(20,59,77,.28);padding:6px}
+.ab-empopt{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:.76rem;color:#143b4d;cursor:pointer;white-space:normal;line-height:1.35;transition:.12s}
+.ab-empopt:hover{background:#FAF7F0}
+.ab-empopt input[type=checkbox]{width:15px;height:15px;min-width:15px;padding:0;margin:0;accent-color:#c1922f;cursor:pointer;flex:none}
+.ab-empopt:has(input:checked){font-weight:600}
 
     #adminOverlay .ab-card .n{font-size:1.7rem;font-weight:700;color:#143b4d;line-height:1}
     #adminOverlay .ab-card .l{font-size:.64rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#8f8073;margin-top:5px}
@@ -3471,11 +3479,7 @@ async function abrirAdmin(){
       <button class="ab-chip" data-f="ok" onclick="admChip(this)">Ativas<span class="c">${nAtiv}</span></button>
       <button class="ab-chip" data-f="bl" onclick="admChip(this)">Bloqueadas<span class="c">${nBloq}</span></button>
     </div>
-    <div class="ab-empfil">
-      <span class="ab-empfil-l">Empresa</span>
-      ${empresas.map(e=>`<label class="ab-empchk" title="${(e.nome||'').replace(/"/g,'&quot;')}"><input type="checkbox" value="${(e.nome||'').replace(/"/g,'&quot;')}" onchange="admFiltrar()">${(e.nome||'').replace(/</g,'&lt;')}</label>`).join('')}
-      <button class="ab-empfil-x" onclick="admLimparEmp()">limpar</button>
-    </div>
+
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="min-width:1120px"><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th style="text-align:right">Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table></div>
     <div class="ab-none" id="admNone" style="display:none">Nenhuma usuária encontrada.</div>
     <div class="ab-box" style="margin-top:18px"><div class="t">Empresas</div>
@@ -3487,10 +3491,8 @@ async function abrirAdmin(){
 }
 let _admF='all';
 function admChip(b){document.querySelectorAll('#adminOverlay .ab-chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');_admF=b.dataset.f;admFiltrar();}
-function admLimparEmp(){document.querySelectorAll('.ab-empchk input[type=checkbox]').forEach(c=>c.checked=false);admFiltrar();}
 function admFiltrar(){
   const q=(document.getElementById('admSearch').value||'').toLowerCase();
-  const marcadas=[...document.querySelectorAll('.ab-empchk input[type=checkbox]:checked')].map(c=>c.value);
   let vis=0;
   document.querySelectorAll('#admRows tr').forEach(r=>{
     const txt=r.textContent.toLowerCase();
@@ -3499,10 +3501,7 @@ function admFiltrar(){
     if(_admF==='pd')okF=r.innerHTML.includes('ab-pd');
     else if(_admF==='ok')okF=r.innerHTML.includes('ab-ok');
     else if(_admF==='bl')okF=r.innerHTML.includes('ab-bl');
-    let okEmp=true;
-    if(marcadas.length){const cel=r.querySelector('.ab-emp');const lista=cel?(cel.dataset.emp||''):'';
-      okEmp=marcadas.some(m=>lista.split(', ').includes(m));}
-    const show=okBusca&&okF&&okEmp; r.style.display=show?'':'none'; if(show)vis++;
+    const show=okBusca&&okF; r.style.display=show?'':'none'; if(show)vis++;
   });
   const n=document.getElementById('admNone'); if(n)n.style.display=vis===0?'block':'none';
 }
