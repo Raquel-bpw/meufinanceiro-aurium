@@ -3491,12 +3491,21 @@ async function abrirAdmin(){
 
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="min-width:1120px"><thead><tr><th>Usuária</th><th>Negócio</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Status</th><th>Empresas</th><th style="text-align:right">Ações</th></tr></thead><tbody id="admRows">${rows||'<tr><td colspan=8 class="ab-none">Nenhuma usuária ainda.</td></tr>'}</tbody></table></div>
     <div class="ab-none" id="admNone" style="display:none">Nenhuma usuária encontrada.</div>
+    <div class="ab-box" style="margin-top:18px">
+      <div class="t" style="display:flex;align-items:center;gap:10px">Trilha de auditoria
+        <span class="ab-sub" style="font-weight:400;text-transform:none;letter-spacing:0">quem fez o quê, quando · dado financeiro não entra aqui</span>
+        <button class="ab-act ab-reset" style="margin-left:auto" onclick="admVerAuditoria()">Atualizar</button>
+        <button class="ab-act ab-approve" onclick="admExportarAuditoria()">⬇ CSV</button>
+      </div>
+      <div id="admAudBox" class="ab-sub" style="padding:14px 2px">Carregando…</div>
+    </div>
     <div class="ab-box" style="margin-top:18px"><div class="t">Empresas</div>
       <div style="display:flex;gap:8px;margin-bottom:10px"><input id="admNovaEmp" type="text" placeholder="nome da nova empresa" style="flex:1"><button class="ab-primary" onclick="admCriarEmpresa()">＋ Criar</button></div>
       <table><thead><tr><th>Empresa</th><th>Acessos</th><th>Atualizada</th><th>Ações</th></tr></thead><tbody>${empRows||'<tr><td colspan=4 class="ab-none">Nenhuma empresa ainda.</td></tr>'}</tbody></table>
     </div>
   </div>`;
   document.body.appendChild(d);
+  admVerAuditoria();
 }
 let _admF='all';
 function admChip(b){document.querySelectorAll('#adminOverlay .ab-chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');_admF=b.dataset.f;admFiltrar();}
@@ -3524,6 +3533,38 @@ async function admAprovar(uid){await _admRpc('admin_aprovar',{p_user:uid});}
 async function admBloquear(uid){if(!confirm('Bloquear esta usuária? Ela perde o acesso na hora.'))return;await _admRpc('admin_bloquear',{p_user:uid});}
 async function admExcluir(uid,nome){if(!confirm('Excluir "'+nome+'" e todos os acessos dela? Esta ação não pode ser desfeita.'))return;await _admRpc('admin_excluir',{p_user:uid});}
 async function admDarAcesso(uid,tid){if(!tid)return;await _admRpc('admin_dar_acesso',{p_user:uid,p_tenant:tid,p_papel:'editor'});}
+let _audCache=[];
+function _audQuando(iso){if(!iso)return '—';const d=new Date(iso),h=new Date();
+  const dia=d.toLocaleDateString('pt-BR'), hora=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const difDias=Math.floor((new Date(h.toDateString())-new Date(d.toDateString()))/864e5);
+  return (difDias===0?'hoje':difDias===1?'ontem':dia)+' · '+hora;}
+function _audIcone(t,a){
+  if(t==='memberships')return a==='INSERT'?'🔓':a==='DELETE'?'🔒':'✏️';
+  if(t==='tenants')return a==='INSERT'?'🏢':a==='DELETE'?'🗑️':'✏️';
+  return '👤';}
+async function admVerAuditoria(){
+  const box=document.getElementById('admAudBox'); if(!box)return;
+  box.innerHTML='<span class="ab-sub">Carregando…</span>';
+  const{data,error}=await sb.rpc('admin_auditoria',{p_limite:200});
+  if(error){box.innerHTML='<span style="color:#A3372B">Não consegui ler a auditoria: '+error.message+'</span>';return;}
+  _audCache=data||[];
+  if(!_audCache.length){box.innerHTML='<span class="ab-sub">Nada registrado ainda. A partir de agora, toda aprovação, bloqueio, mudança de plano, liberação ou revogação de acesso e criação ou exclusão de empresa fica aqui.</span>';return;}
+  box.innerHTML='<div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Quando</th><th>Quem</th><th>O quê</th></tr></thead><tbody>'
+    + _audCache.map(r=>`<tr>
+        <td class="ab-sub" style="white-space:nowrap">${_audQuando(r.quando)}</td>
+        <td style="white-space:nowrap">${(r.quem_email||'—').replace(/</g,'&lt;')}</td>
+        <td>${_audIcone(r.tabela,r.acao)} ${(r.resumo||r.tabela+' · '+r.acao).replace(/</g,'&lt;')}</td>
+      </tr>`).join('')
+    + '</tbody></table></div><div class="ab-sub" style="margin-top:9px">'+_audCache.length+' registro(s) · mais recentes primeiro</div>';
+}
+function admExportarAuditoria(){
+  if(!_audCache.length){alert('Nada para exportar ainda.');return;}
+  const esc=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const csv=['Quando;Quem;Tabela;Acao;Resumo']
+    .concat(_audCache.map(r=>[r.quando,r.quem_email,r.tabela,r.acao,r.resumo].map(esc).join(';')))
+    .join('\r\n');
+  baixar('\ufeff'+csv,'auditoria_'+new Date().toISOString().slice(0,10)+'.csv','text/csv;charset=utf-8');
+}
 function admPosPop(d){
   if(!d.open){return;}
   /* so um campo aberto por vez */
