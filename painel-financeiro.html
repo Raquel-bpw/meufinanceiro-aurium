@@ -415,7 +415,6 @@
           <button class="menu-item" data-pages="categorias" onclick="irPara('categorias',this)">Categorias</button>
           <button class="menu-item" data-pages="servicos" onclick="irPara('servicos',this)">Serviços</button>
           <button class="menu-item" data-pages="regras" onclick="irPara('regras',this)">Regras</button>
-          <button class="menu-item" data-pages="tags" onclick="irPara('tags',this)">Tags</button>
           <button class="menu-item" data-pages="usuarias" onclick="irPara('usuarias',this)">Perfis</button>
           <button class="menu-item" data-pages="integracao" onclick="irPara('integracao',this)">Integração</button>
         </div>
@@ -536,7 +535,7 @@
         </div>
       </div>
       <div id="fluxoMensalWrap">
-        <div class="toggle-linha" style="margin-top:12px"><label style="margin:0"><input type="checkbox" id="incluirPrev" onchange="renderFluxo()"> Incluir lançamentos previstos (contas a pagar/receber)</label></div>
+        <div class="toggle-linha" style="margin-top:12px"><label style="margin:0"><input type="checkbox" id="incluirPrev" onchange="renderFluxo()"> Mostrar previsto (contas a pagar/receber) em colunas separadas</label></div>
         <canvas id="graficoFluxo" height="80"></canvas>
         <div style="overflow-x:auto"><table id="tabFluxo"><thead><tr><th>Mês</th><th style="text-align:right">Entradas</th><th style="text-align:right">Saídas</th><th style="text-align:right">Resultado do mês</th><th style="text-align:right">Saldo acumulado</th></tr></thead><tbody id="tbodyFluxo"></tbody></table></div>
         <div id="fluxoVazio" class="vazio" style="display:none">Sem lançamentos para montar o fluxo de caixa.</div>
@@ -621,7 +620,7 @@
         <button class="btn sec peq" onclick="baixarTodos('receita')">✓ Baixar todos os correspondentes</button>
       </div>
       <div class="cap">Contas a receber em aberto. "Correspondência" indica que já existe um lançamento realizado equivalente.</div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Descrição (serviço)</th><th>Unidade</th><th>Correspondência</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody id="tbodyRec"></tbody></table></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Descrição</th><th>Unidade</th><th>Correspondência</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody id="tbodyRec"></tbody></table></div>
       <div id="recVazio" class="vazio" style="display:none">Nada a receber em aberto.</div>
     </div>
     <div class="card">
@@ -630,7 +629,7 @@
         <button class="btn sec peq" onclick="baixarTodos('despesa')">✓ Baixar todos os correspondentes</button>
       </div>
       <div class="cap">Contas a pagar em aberto.</div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Descrição (serviço)</th><th>Unidade</th><th>Correspondência</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody id="tbodyPag"></tbody></table></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Descrição</th><th>Unidade</th><th>Correspondência</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody id="tbodyPag"></tbody></table></div>
       <div id="pagVazio" class="vazio" style="display:none">Nada a pagar em aberto.</div>
     </div>
   </section>
@@ -665,7 +664,7 @@
       <div class="form-grid">
         <div style="grid-column:span 3"><label>Nome do cartão</label><input id="ccNome" placeholder="Ex: Nubank Empresarial"></div>
         <div style="grid-column:span 2"><label>Bandeira</label><input id="ccBandeira" placeholder="Ex: Visa, Mastercard"></div>
-        <div><label>Limite (R$)</label><input type="text" inputmode="decimal" id="ccLimite" placeholder="0,00" onblur="if(this.value)this.value=(parseValor(this.value)||0).toFixed(2).replace('.',',')"></div>
+        <div><label>Limite (R$)</label><input type="text" inputmode="decimal" id="ccLimite" placeholder="0,00" onblur="if(this.value)this.value=fmtMoedaInput(this.value)"></div>
         <div><label>Dia de vencimento</label><input type="number" id="ccVenc" min="1" max="31" placeholder="Ex: 10"></div>
         <div style="grid-column:span 2"><label>Fecha X dias antes do vencimento</label><input type="number" id="ccFech" min="0" max="30" placeholder="Ex: 8"></div>
         <div style="grid-column:span 2"><label>Conta de débito</label><select id="ccConta"></select></div>
@@ -809,11 +808,6 @@
     <div class="titulo-pg"><em>Categorias</em></div>
     <div class="sub-pg">As despesas são organizadas em grupos. São eles que montam o gráfico "Para onde foi o seu dinheiro".</div>
     <div class="card">
-      <h2>Plano de contas</h2>
-      <div class="cap">Importe o plano de contas do MAPA Financeira (Aurium Saúde) com um clique — números, nomes e descrições, em ordem.</div>
-      <div style="margin:4px 0 2px"><button class="btn ouro" onclick="importarPlanoMapa()">📋 Importar plano de contas (MAPA Financeira)</button></div>
-    </div>
-    <div class="card">
       <h2>Categorias</h2>
       <div class="cap">Cada categoria tem número, nome e descrição. Use Editar para alterar e Copiar para duplicar.</div>
       <div style="margin:4px 0 2px"><button class="btn" onclick="abrirCategoria()">➕ Adicionar categoria</button></div>
@@ -886,29 +880,6 @@
   </section>
 
   <!-- TAGS -->
-  <section class="pagina" id="pg-tags">
-    <div class="eyebrow">Configuração</div>
-    <div class="titulo-pg"><em>Tags</em></div>
-    <div class="sub-pg">Marcadores coloridos livres, para organizar do seu jeito além do plano de contas.</div>
-    <div class="card">
-      <h2>Nova tag</h2>
-      <div class="cap">Escolha um nome e uma cor.</div>
-      <div class="form-grid">
-        <div style="grid-column:span 4"><label>Nome</label><input id="tgNome" placeholder="Ex: Urgente, VIP, Revisar..."></div>
-        <div style="grid-column:span 2"><button class="btn" style="width:100%" onclick="addTag()">➕ Adicionar tag</button></div>
-      </div>
-      <div style="margin-top:16px">
-        <label>Cor</label>
-        <div id="tgCores" class="tg-cores"></div>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Tags cadastradas</h2>
-      <div class="cap">Clique no × para remover uma tag.</div>
-      <div id="tgLista" class="tg-lista"></div>
-      <div id="tgVazio" class="vazio" style="display:none">Nenhuma tag cadastrada ainda.</div>
-    </div>
-  </section>
 
   <!-- SERVIÇOS -->
   <section class="pagina" id="pg-servicos">
@@ -918,7 +889,7 @@
     <div class="card">
       <h2>Catálogo de serviços</h2>
       <div class="cap">Ex.: "Exames" (pai) com BERA, Audiometria e Otoemissões (filhos), dentro da categoria 1.3 Exames Diagnósticos.</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px"><button class="btn ouro" onclick="abrirServico()">➕ Adicionar serviço</button><button class="btn sec" onclick="importarServicosAurium()">📋 Importar lista AURIUM</button><button class="btn sec" onclick="relatorioServicos()">📄 Relatório para a cliente validar</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px"><button class="btn ouro" onclick="abrirServico()">➕ Adicionar serviço</button><button class="btn sec" onclick="relatorioServicos()">📄 Relatório para a cliente validar</button></div>
       <div id="servicosLista"></div>
       <div id="servicosVazio" class="vazio" style="display:none">Nenhum serviço cadastrado. Comece pelos serviços "pai" e depois cadastre os filhos.</div>
     </div>
@@ -1637,6 +1608,7 @@ function gerarDiagnostico(){
   const itens=GRUPOS_DESPESA.map(g=>({g,v:c.porGrupo[g]})).filter(i=>i.v>0).sort((a,b)=>b.v-a.v);
   const distRows=itens.map(i=>`<tr><td>${i.g}</td><td class=num>${c.receita>0?pct(i.v/c.receita):'-'}</td><td class=num>${moeda(i.v)}</td></tr>`).join('')||'<tr><td colspan=3>Sem despesas no período.</td></tr>';
   const insRows=analiseInsights(c).map(([t,tit,txt])=>`<div class="ins ${t}"><b>${tit}</b><br>${txt}</div>`).join('');
+  const _prevAll=dados().lancamentos.filter(l=>visivel(l)&&l.status==='previsto'&&!l.baixado);const _prevRec=_prevAll.filter(l=>l.tipo==='receita'),_prevPag=_prevAll.filter(l=>l.tipo==='despesa');const _tRec=_prevRec.reduce((s,l)=>s+(+l.valor||0),0),_tPag=_prevPag.reduce((s,l)=>s+(+l.valor||0),0);const _prevBloco=`<table><tr><td>A receber (previsto) — ${_prevRec.length} lançamento(s)</td><td class=num>${moeda(_tRec)}</td></tr><tr><td>A pagar (previsto) — ${_prevPag.length} lançamento(s)</td><td class=num>${moeda(_tPag)}</td></tr><tr><td><b>Saldo previsto</b></td><td class=num><b>${moeda(_tRec-_tPag)}</b></td></tr></table><div style="font-size:11px;color:#999;margin-top:2px">Previstos são estimativas (contas a pagar/receber em aberto) — não entram no resultado realizado acima.</div>`;
   const gcor={A:'#16447a',B:'#16447a',C:'#c1922f',D:'#b23b3b'}[sa.grade];const agora=new Date().toLocaleString('pt-BR');const cli=empresaAtiva();
   const w=window.open('','_blank');if(!w){alert('Permita pop-ups para gerar o PDF.');return;}
   w.document.write(`<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><title>Diagnóstico — ${p.nome}</title><style>@page{margin:16mm}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#2b1a20;max-width:760px;margin:0 auto}h1{font-family:Georgia,serif;color:#143b4d;font-size:24px;margin:0}.sub{color:#999;font-size:12px;margin-bottom:14px}.kpis{display:flex;gap:8px;margin:14px 0}.k{flex:1;border:1px solid #e9ddd8;border-radius:8px;padding:9px}.k .r{font-size:9px;text-transform:uppercase;color:#999;letter-spacing:.5px}.k .v{font-size:17px;font-weight:bold;color:#143b4d}.grade{display:inline-block;font-size:38px;font-weight:bold;color:${gcor};border:3px solid ${gcor};border-radius:10px;padding:2px 16px;margin-right:14px;vertical-align:middle}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border-bottom:1px solid #eee;padding:6px 7px;font-size:12.5px;text-align:left}.num{text-align:right}.ins{border-left:4px solid #aaa;background:#faf7f4;padding:8px 12px;margin:7px 0;font-size:12px;border-radius:4px;line-height:1.5}.ins.bad{border-color:#b23b3b}.ins.warn{border-color:#c1922f}.ins.ok{border-color:#16447a}.ins.info{border-color:#3a5a8c}.sec{font-family:Georgia,serif;color:#143b4d;font-size:15px;margin:20px 0 6px;border-bottom:2px solid #c8a04a;padding-bottom:4px}.foot{margin-top:26px;font-size:10px;color:#bbb;text-align:center}</style></head><body>
@@ -1646,7 +1618,8 @@ function gerarDiagnostico(){
   <div class=sec>Para onde foi o dinheiro</div><table><tr><th>Grupo</th><th class=num>% receita</th><th class=num>Valor</th></tr>${distRows}</table>
   <div class=sec>Indicadores</div><table><tr><td>Margem de contribuição</td><td class=num>${pct(c.mc)}</td></tr><tr><td>Despesa fixa / receita</td><td class=num>${pct(c.dfReceita)}</td></tr><tr><td>Ponto de equilíbrio</td><td class=num>${c.pe===null?'não atingível':moeda(c.pe)}</td></tr><tr><td>Reinvestido</td><td class=num>${pct(c.reinvest)}</td></tr><tr><td>Contas a pagar previstas</td><td class=num>${moeda(c.contasPagar)}</td></tr></table>
   <div class=sec>Análise e recomendações</div>${insRows}
-  <div class=foot>GRUPO CEZARYS LTDA &nbsp;·&nbsp; Relatório gerado em ${agora} &nbsp;·&nbsp; Painel Financeiro AURIUM &nbsp;·&nbsp; use "Salvar como PDF" na janela de impressão</div></body></html>`);
+  <div class=sec>Contas a pagar e a receber (previstas)</div>${_prevBloco}
+  <div class=foot>${(dados().cliente&&dados().cliente.razaoSocial)?dados().cliente.razaoSocial+' &nbsp;·&nbsp; ':''}Relatório gerado em ${agora} &nbsp;·&nbsp; INTEIRA Finanças &nbsp;·&nbsp; use "Salvar como PDF" na janela de impressão</div></body></html>`);
   w.document.close();setTimeout(()=>{w.focus();w.print();},500);
 }
 function ultimos6(){const out=[];const base=new Date();for(let i=5;i>=0;i--){const d=new Date(base.getFullYear(),base.getMonth()-i,1);out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);}return out;}
@@ -2090,20 +2063,28 @@ function exportarDemonstrativo(){if(!_demoAOA.length)renderDemonstrativo();if(!_
 function imprimirDemonstrativo(){const box=document.getElementById('demoBox');if(!box||!box.innerHTML){renderDemonstrativo();}const emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'');const per=(typeof labelFiltro==='function')?labelFiltro('per','Todos os períodos'):'';const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}w.document.write('<html><head><meta charset=UTF-8><title>Demonstrativo de fluxo de caixa</title><style>@page{size:landscape;margin:12mm}:root{--vinho:#143b4d;--vinho2:#1c4d61;--vinho3:#2e86a8;--vinho-fog:#eef4f5;--ouro:#c1922f;--ouro2:#d9ab44;--ouro-claro:#f3e7cc;--suave:#8f8073;--borda:#e2ddd0;--verde:#2e7d46;--rubro:#a83535;--creme2:#eae3d5;--branco:#fff;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Arial,sans-serif;color:#2b1a20;padding:0}.cab{border-bottom:2px solid #c1922f;padding-bottom:10px;margin-bottom:14px}.cab h1{font-family:Georgia,serif;color:#143b4d;font-size:20px;margin:0}.cab .s{font-size:12px;color:#888;margin-top:3px}table{border-collapse:collapse;width:100%;font-size:10.5px}td,th{padding:4px 8px}.rod{margin-top:20px;text-align:center;color:#aaa;font-size:10px;border-top:1px solid #eee;padding-top:8px}</style></head><body><div class=cab><h1>Demonstrativo de Fluxo de Caixa</h1><div class=s>'+emp+(per?' · '+per:'')+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div>'+document.getElementById('demoBox').innerHTML+'<div class=rod>INTEIRA Tech · Painel Financeiro</div></body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),350);}
 function renderFluxo(){
   renderFluxoCaixa();
-  const incPrev=document.getElementById('incluirPrev').checked;
-  const arr=dados().lancamentos.filter(l=>visivel(l)&&(l.status!=='previsto'||(incPrev&&!l.baixado)));
-  const meses={};
-  arr.forEach(l=>{if(!l.data)return;const m=l.data.slice(0,7);if(!meses[m])meses[m]={ent:0,sai:0};if(l.tipo==='receita')meses[m].ent+=(+l.valor||0);else meses[m].sai+=(+l.valor||0);});
-  const ordem=Object.keys(meses).sort();
-  let totEnt=0,totSai=0,acum=0;
-  const tb=document.getElementById('tbodyFluxo');
+  const mostrarPrev=document.getElementById('incluirPrev').checked;
+  const base=dados().lancamentos.filter(l=>visivel(l)&&l.data);
+  const R={},P={};
+  base.forEach(l=>{const m=l.data.slice(0,7);const v=+l.valor||0;
+    if(l.status==='previsto'){if(l.baixado)return;if(!P[m])P[m]={ent:0,sai:0};if(l.tipo==='receita')P[m].ent+=v;else P[m].sai+=v;}
+    else{if(!R[m])R[m]={ent:0,sai:0};if(l.tipo==='receita')R[m].ent+=v;else R[m].sai+=v;}});
+  const ordem=[...new Set([].concat(Object.keys(R),mostrarPrev?Object.keys(P):[]))].sort();
+  const tab=document.getElementById('tabFluxo');
   document.getElementById('fluxoVazio').style.display=ordem.length?'none':'block';
-  tb.innerHTML=ordem.map(m=>{const e=meses[m].ent,s=meses[m].sai,resultado=e-s;acum+=resultado;totEnt+=e;totSai+=s;
-    const[a,mm]=m.split('-');const nome=new Date(a,mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
-    return `<tr><td style="font-weight:600">${nome}</td><td style="text-align:right;color:var(--verde)">${moeda(e)}</td><td style="text-align:right;color:var(--rubro)">${moeda(s)}</td><td style="text-align:right;font-weight:700;color:${resultado>=0?'var(--vinho)':'var(--rubro)'}">${moeda(resultado)}</td><td style="text-align:right;font-weight:700;color:${acum>=0?'var(--vinho)':'var(--rubro)'}">${moeda(acum)}</td></tr>`;}).join('');
-  // gráfico
-  let ac=0;const labels=ordem.map(m=>{const[a,mm]=m.split('-');return new Date(a,mm-1,1).toLocaleDateString('pt-BR',{month:'short'});});
-  const dEnt=ordem.map(m=>meses[m].ent),dSai=ordem.map(m=>meses[m].sai),dAcum=ordem.map(m=>{ac+=meses[m].ent-meses[m].sai;return ac;});
+  const bl='border-left:2px solid var(--linha,#e7ddd3)';
+  const thead='<thead><tr><th>Mês</th><th style="text-align:right">Entradas</th><th style="text-align:right">Saídas</th><th style="text-align:right">Resultado do mês</th><th style="text-align:right">Saldo acumulado</th>'+(mostrarPrev?('<th style="text-align:right;'+bl+'">Prev. entradas</th><th style="text-align:right">Prev. saídas</th><th style="text-align:right">Prev. resultado</th>'):'')+'</tr></thead>';
+  let acum=0;
+  const rows=ordem.map(m=>{
+    const r=R[m]||{ent:0,sai:0};const res=r.ent-r.sai;acum+=res;
+    const a=m.split('-')[0],mm=m.split('-')[1];const nome=new Date(a,mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    let tr='<tr><td style="font-weight:600">'+nome+'</td><td style="text-align:right;color:var(--verde)">'+moeda(r.ent)+'</td><td style="text-align:right;color:var(--rubro)">'+moeda(r.sai)+'</td><td style="text-align:right;font-weight:700;color:'+(res>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(res)+'</td><td style="text-align:right;font-weight:700;color:'+(acum>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(acum)+'</td>';
+    if(mostrarPrev){const pp=P[m]||{ent:0,sai:0};const pres=pp.ent-pp.sai;tr+='<td style="text-align:right;color:var(--verde);'+bl+'">'+moeda(pp.ent)+'</td><td style="text-align:right;color:var(--rubro)">'+moeda(pp.sai)+'</td><td style="text-align:right;font-weight:700;color:'+(pres>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(pres)+'</td>';}
+    return tr+'</tr>';
+  }).join('');
+  tab.innerHTML=thead+'<tbody id="tbodyFluxo">'+rows+'</tbody>';
+  let ac=0;const labels=ordem.map(m=>{const a=m.split('-')[0],mm=m.split('-')[1];return new Date(a,mm-1,1).toLocaleDateString('pt-BR',{month:'short'});});
+  const dEnt=ordem.map(m=>(R[m]||{ent:0}).ent),dSai=ordem.map(m=>(R[m]||{sai:0}).sai),dAcum=ordem.map(m=>{const r=R[m]||{ent:0,sai:0};ac+=r.ent-r.sai;return ac;});
   if(fluxoChart)fluxoChart.destroy();
   const ctx=document.getElementById('graficoFluxo');
   fluxoChart=new Chart(ctx,{data:{labels,datasets:[
@@ -2226,7 +2207,7 @@ function atualizaBadgeFiltroLanc(){const b=document.getElementById('btnFiltrarLa
 function abrirFiltroLanc(){
   window._filtroLanc=window._filtroLanc||{};
   const f=window._filtroLanc;
-  const cats=(dados().categorias||[]).slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero)));
+  const cats=(dados().categorias||[]).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));
   const catOpts='<option value="">Todas categorias</option>'+cats.map(c=>`<option value="${c.nome}" ${f.categoria===c.nome?'selected':''}>${c.nome}</option>`).join('');
   const bancos=(dados().bancos||[]).filter(b=>b.ativo!==false);
   const bancoOpts='<option value="">Todos os bancos</option>'+bancos.map(b=>`<option value="${b.nome}" ${f.banco===b.nome?'selected':''}>${b.nome}</option>`).join('');
@@ -2296,15 +2277,15 @@ function renderTabela(){
 function ehAClassificar(l){return (l.categoria||'')==='A classificar'||!l.categoria;}
 function renderResumoClassificar(){const box=document.getElementById('resumoClassificar');if(!box)return;const arr=dados().lancamentos.filter(l=>visivel(l)&&ehAClassificar(l));if(!arr.length){box.innerHTML='';return;}const rec=arr.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0);const desp=arr.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);box.innerHTML=`<div class="card" style="border-left:4px solid var(--ouro)"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><h2 style="margin:0">🔶 A classificar</h2><div class="cap"><b>${arr.length}</b> lançamento(s) importado(s) sem categoria — entradas ${moeda(rec)} · saídas ${moeda(desp)}. Trate para fechar a diferença de saldo.</div></div><button class="btn ouro" onclick="verAClassificar()">Ver a classificar</button></div></div>`;}
 function verAClassificar(){abrirAba('lancamentos');setTimeout(()=>{window._filtroLanc=window._filtroLanc||{};window._filtroLanc.aClassificar=true;renderTabela();atualizaBadgeFiltroLanc();const c=document.querySelector('#pg-lancamentos');if(c)c.scrollIntoView({behavior:'smooth'});},60);}
-function atualizaCatSelect(){const ftp=document.getElementById('fTipo');const sel=document.getElementById('fCat');if(!ftp||!sel)return;const tipo=ftp.value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cats=dados().categorias.filter(c=>est||c.tipo===tipo).slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero)));sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')+(cats.map(c=>`<option value="${c.nome}">${c.nome}${est?' ('+(c.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('')||'<option value="">— cadastre categorias —</option>');}
-function preencherFiltroCat(){const sel=document.getElementById('filtCat');if(!sel)return;const atual=sel.value;sel.innerHTML='<option value="">Todas categorias</option>'+dados().categorias.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');if(atual)sel.value=atual;}
+function atualizaCatSelect(){const ftp=document.getElementById('fTipo');const sel=document.getElementById('fCat');if(!ftp||!sel)return;const tipo=ftp.value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cats=dados().categorias.filter(c=>est||c.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')+(cats.map(c=>`<option value="${c.nome}">${c.nome}${est?' ('+(c.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('')||'<option value="">— cadastre categorias —</option>');}
+function preencherFiltroCat(){const sel=document.getElementById('filtCat');if(!sel)return;const atual=sel.value;sel.innerHTML='<option value="">Todas categorias</option>'+dados().categorias.slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');if(atual)sel.value=atual;}
 function abrirNovoLancamento(){
   const hasUni=(dados().unidades||[]).length>0;
   const formas=['','DINHEIRO','PIX','CARTÃO DE CRÉDITO','CARTÃO DE DÉBITO','BOLETO','CONVÊNIO','OUTROS'];
   document.getElementById('modalConteudo').innerHTML=`<h3>Novo lançamento</h3><div class="form-grid">
     <div style="grid-column:span 3"><label>Data</label><input type="date" id="fData"></div>
     <div style="grid-column:span 3"><label>Tipo</label><select id="fTipo" onchange="lancTipoChg()"><option value="receita">Receita (entrada)</option><option value="despesa">Despesa (saída)</option><option value="transfer">Transferência entre contas</option><option value="estorno_receita">Estorno de receita (saída em receita)</option><option value="estorno_despesa">Estorno de despesa (entrada em despesa)</option></select></div>
-    <div style="grid-column:span 3"><label>Valor (R$)</label><input type="number" id="fValor" step="0.01" placeholder="0,00"></div>
+    <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fValor" placeholder="0,00" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div id="wrapFCat" style="grid-column:span 3"><label>Categoria</label><select id="fCat"></select></div>
     <div id="wrapFBanco" style="grid-column:span 3"><label>Banco / Conta</label><select id="fBanco"></select></div>
     <div id="wrapFDe" style="grid-column:span 3;display:none"><label>De (conta de origem)</label><select id="fDe"></select></div>
@@ -2313,7 +2294,7 @@ function abrirNovoLancamento(){
     <div style="grid-column:span 3"><label>Situação</label><select id="fStatus"><option value="realizado">Realizado</option><option value="previsto">Previsto (a realizar)</option></select></div>
     <div id="boxFUnidade" style="grid-column:span 3;${hasUni?'':'display:none'}"><label>Unidade</label><select id="fUnidade"></select></div>
     <div style="grid-column:span 6"><label>Cliente ou fornecedor</label><input id="fCliente" placeholder="Nome do cliente ou fornecedor"></div>
-    <div style="grid-column:span 6"><label>Descrição (serviço)</label><input id="fDesc" placeholder="Ex: Audiometria, aluguel, fornecedor..."></div>
+    <div style="grid-column:span 6"><label>Descrição</label><input id="fDesc" placeholder="Ex: aluguel, fornecedor, venda de produto..."></div>
     <div style="grid-column:span 6"><label>Observação</label><input id="fObs" placeholder="Anotação livre (opcional)"></div>
   </div>
   <div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn sec" onclick="salvarLancamento(true)">Salvar e lançar próximo</button><button class="btn ouro" onclick="salvarLancamento(false)">Salvar</button></div>`;
@@ -2338,7 +2319,7 @@ function garantirCategoriaTransf(){
   if(!(dados().categorias||[]).some(c=>c.nome===nome))dados().categorias.push({id:id(),numero:'',nome,descricao:'Movimento entre contas — não entra no resultado',grupo:'FINANCEIRO',tipo:'despesa'});
 }
 function salvarTransferencia(proximo){
-  const data=document.getElementById('fData').value;const valor=parseFloat(document.getElementById('fValor').value);
+  const data=document.getElementById('fData').value;const valor=parseValor(document.getElementById('fValor').value);
   const de=(document.getElementById('fDe')||{}).value,para=(document.getElementById('fPara')||{}).value;
   if(!data){alert('Informe a data.');return;}
   if(isNaN(valor)||valor<=0){alert('Informe um valor maior que zero.');return;}
@@ -2357,7 +2338,7 @@ function salvarTransferencia(proximo){
 function salvarLancamento(proximo){
   const dataEl=document.getElementById('fData');if(!dataEl){abrirNovoLancamento();return;}
   if(((document.getElementById('fTipo')||{}).value)==='transfer')return salvarTransferencia(proximo);
-  const data=dataEl.value;const valor=parseFloat(document.getElementById('fValor').value);
+  const data=dataEl.value;const valor=parseValor(document.getElementById('fValor').value);
   if(!data){alert('Informe a data.');return;}if(isNaN(valor)||valor<=0){alert('Informe um valor maior que zero.');return;}
   const uni=(document.getElementById('fUnidade')&&(dados().unidades||[]).length)?document.getElementById('fUnidade').value:'';
   const _cli=document.getElementById('fCliente'),_frm=document.getElementById('fForma');const _desc=document.getElementById('fDesc').value.trim();
@@ -2378,6 +2359,7 @@ function salvarLancamento(proximo){
 }
 function editarLanc(lid){
   const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
+  if(l.transfRef){return editarTransferencia(l.transfRef,lid);}
   const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);const bopts='<option value="">— sem banco —</option>'+bs.map(b=>`<option ${l.banco===b.nome?'selected':''}>${b.nome}</option>`).join('');const formas=['','DINHEIRO','PIX','CARTÃO DE CRÉDITO','CARTÃO DE DÉBITO','BOLETO','CONVÊNIO','OUTROS'];
   const csC=(dados().cartoes||[]).filter(c=>c.ativo!==false);const copts='<option value="">— sem cartão —</option>'+csC.map(c=>`<option value="${c.id}" ${l.cartaoId===c.id?'selected':''}>${c.nome}</option>`).join('');
   const tipoInicial=l.estorno&&catTipo(l.categoria)==='receita'?'estorno_receita':(l.estorno&&catTipo(l.categoria)==='despesa'?'estorno_despesa':l.tipo);
@@ -2385,8 +2367,8 @@ function editarLanc(lid){
     <div><label>Data</label><input type="date" id="eData" value="${l.data||''}"></div>
     <div style="grid-column:span 2"><label>Cliente ou fornecedor</label><input id="eCliente" placeholder="Nome do cliente ou fornecedor" value="${(l.cliente||'').replace(/"/g,'&quot;')}"></div>
     <div><label>Tipo</label><select id="eTipo" onchange="recarregaCatEdit()"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
-    <div style="grid-column:span 3"><label>Descrição (serviço)</label><input id="eDesc" value="${((l.servico||l.descricao)||'').replace(/"/g,'&quot;')}"></div>
-    <div><label>Valor</label><input type="text" inputmode="decimal" id="eValor" value="${(+l.valor||0).toFixed(2).replace('.',',')}" onblur="this.value=(parseValor(this.value)||0).toFixed(2).replace('.',',')"></div>
+    <div style="grid-column:span 3"><label>Descrição</label><input id="eDesc" value="${((l.servico||l.descricao)||'').replace(/"/g,'&quot;')}"></div>
+    <div><label>Valor</label><input type="text" inputmode="decimal" id="eValor" value="${fmtMoedaInput(l.valor)}" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div style="grid-column:span 2"><label>Categoria</label><select id="eCat"></select></div>
     <div style="grid-column:span 2"><label>Forma</label><select id="eForma">${formas.map(x=>`<option value="${x}" ${(l.formaPagto||'')===x?'selected':''}>${x||'—'}</option>`).join('')}</select></div>
     <div style="grid-column:span 2"><label>Banco</label><select id="eBanco">${bopts}</select></div>
@@ -2395,6 +2377,66 @@ function editarLanc(lid){
     ${(dados().unidades||[]).length?`<div><label>Unidade</label><select id="eUnidade"><option value="">— sem unidade —</option>${dados().unidades.map(u=>`<option ${l.unidade===u?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
     </div><div class="modal-acoes">${!ehEstorno(l)?`<button class="btn sec" onclick="estornarLanc('${lid}')" style="margin-right:auto">↩️ Estornar</button>`:''}<button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarEdicao('${lid}')">Salvar</button></div>`;
   document.getElementById('modalBg').classList.add('show');recarregaCatEdit(l.categoria);
+}
+function editarTransferencia(ref,lid){
+  const legs=dados().lancamentos.filter(x=>x.transfRef===ref);
+  const l=legs.find(x=>x.id===lid)||legs[0];if(!l)return;
+  const saida=legs.find(x=>x.transfLado==='saida')||legs.find(x=>x.tipo==='despesa');
+  const entrada=legs.find(x=>x.transfLado==='entrada')||legs.find(x=>x.tipo==='receita');
+  const ref0=(saida||entrada||{});
+  const de=(saida&&saida.banco)||'';const para=(entrada&&entrada.banco)||'';
+  const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);
+  const opt=(sel)=>'<option value="">— escolha a conta —</option>'+bs.map(b=>`<option ${sel===b.nome?'selected':''}>${b.nome}</option>`).join('');
+  const val=fmtMoedaInput(ref0.valor);
+  const st=(ref0.status)==='previsto'?'previsto':'realizado';
+  const dt=(ref0.data)||'';
+  const desc=((ref0.servico||ref0.descricao)||'').replace(/"/g,'&quot;');
+  const obs=(ref0.obs||'').replace(/"/g,'&quot;');
+  const uni=ref0.unidade||'';
+  document.getElementById('modalConteudo').innerHTML=`<h3>Editar transferência entre contas</h3><div class="form-grid">
+    <div style="grid-column:span 3"><label>Data</label><input type="date" id="etData" value="${dt}"></div>
+    <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="etValor" value="${val}" onblur="this.value=fmtMoedaInput(this.value)"></div>
+    <div style="grid-column:span 3"><label>De (conta de origem)</label><select id="etDe">${opt(de)}</select></div>
+    <div style="grid-column:span 3"><label>Para (conta de destino)</label><select id="etPara">${opt(para)}</select></div>
+    <div style="grid-column:span 3"><label>Situação</label><select id="etStatus"><option value="realizado" ${st!=='previsto'?'selected':''}>Realizado</option><option value="previsto" ${st==='previsto'?'selected':''}>Previsto (a realizar)</option></select></div>
+    ${(dados().unidades||[]).length?`<div style="grid-column:span 3"><label>Unidade</label><select id="etUnidade"><option value="">— sem unidade —</option>${dados().unidades.map(u=>`<option ${uni===u?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
+    <div style="grid-column:span 6"><label>Descrição</label><input id="etDesc" value="${desc}"></div>
+    <div style="grid-column:span 6"><label>Observação</label><input id="etObs" value="${obs}"></div>
+  </div>
+  <div class="modal-acoes"><button class="btn sec" onclick="excluirTransferencia('${ref}')" style="margin-right:auto">🗑️ Excluir transferência</button><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarEdicaoTransf('${ref}')">Salvar</button></div>`;
+  document.getElementById('modalBg').classList.add('show');
+}
+function confirmarEdicaoTransf(ref){
+  const data=document.getElementById('etData').value;
+  const valor=parseValor(document.getElementById('etValor').value)||0;
+  const de=(document.getElementById('etDe')||{}).value,para=(document.getElementById('etPara')||{}).value;
+  if(!data){alert('Informe a data.');return;}
+  if(valor<=0){alert('Informe um valor maior que zero.');return;}
+  if(!de||!para){alert('Escolha a conta de origem e a conta de destino.');return;}
+  if(de===para){alert('A origem e o destino precisam ser contas diferentes.');return;}
+  const uEl=document.getElementById('etUnidade');const uni=uEl?uEl.value:'';
+  const desc=document.getElementById('etDesc').value.trim()||('Transferência: '+de+' → '+para);
+  const obs=(document.getElementById('etObs')||{}).value.trim();
+  const st=document.getElementById('etStatus').value;
+  const legs=dados().lancamentos.filter(x=>x.transfRef===ref);
+  let saida=legs.find(x=>x.transfLado==='saida')||legs.find(x=>x.tipo==='despesa');
+  let entrada=legs.find(x=>x.transfLado==='entrada')||legs.find(x=>x.tipo==='receita');
+  garantirCategoriaTransf();
+  const u=usuariaAtivaNome();
+  if(!saida){saida={id:id(),transfRef:ref};dados().lancamentos.push(saida);}
+  if(!entrada){entrada={id:id(),transfRef:ref};dados().lancamentos.push(entrada);}
+  [[saida,de,'despesa','saida'],[entrada,para,'receita','entrada']].forEach(function(a){
+    const leg=a[0],banco=a[1],tp=a[2],lado=a[3];
+    leg.data=data;leg.valor=valor;leg.banco=banco;leg.status=st;leg.unidade=uni;leg.descricao=desc;leg.servico=desc;leg.obs=obs;
+    leg.categoria='Transferência entre contas';leg.tipo=tp;leg.transfLado=lado;leg.transfRef=ref;leg.cliente='';leg.formaPagto='';if(!leg.usuario)leg.usuario=u;
+    delete leg.estorno;
+  });
+  saveApp();autoConciliar();fecharModal();render();
+}
+function excluirTransferencia(ref){
+  if(!confirm('Excluir esta transferência? As duas pernas (origem e destino) serão apagadas.'))return;
+  dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==ref);
+  saveApp();fecharModal();render();
 }
 function estornarLanc(lid){
   const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
@@ -2421,10 +2463,10 @@ function estornarLanc(lid){
   saveApp();fecharModal();render();
   alert('Estorno gerado com sucesso — lançamento inverso criado em '+new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')+'.');
 }
-function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const cats=dados().categorias.filter(x=>est||x.tipo===tipo).slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero)));document.getElementById('eCat').innerHTML=cats.map(x=>`<option value="${x.nome}" ${x.nome===cur?'selected':''}>${x.nome}${est?' ('+(x.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('');}
+function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const cats=dados().categorias.filter(x=>est||x.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));document.getElementById('eCat').innerHTML=cats.map(x=>`<option value="${x.nome}" ${x.nome===cur?'selected':''}>${x.nome}${est?' ('+(x.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('');}
 function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;l.data=document.getElementById('eData').value;l.cliente=document.getElementById('eCliente').value.trim();const serv=document.getElementById('eDesc').value.trim();l.servico=serv;l.descricao=(l.cliente?l.cliente+' — ':'')+serv;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=parseValor(document.getElementById('eValor').value)||0;l.categoria=document.getElementById('eCat').value;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=document.getElementById('eStatus').value;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;saveApp();fecharModal();render();}
-function excluirLanc(lid){if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
-function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
+function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
+function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
 function fecharModal(){document.getElementById('modalBg').classList.remove('show');}
 
 // ===================== CATEGORIAS =====================
@@ -2466,7 +2508,7 @@ function abrirRelatorio(titulo,sub,corpo){const ea=empresaAtiva();const marca=(e
 function relatorioServicos(){const ss=dados().servicos||[];if(!ss.length){alert('Cadastre ou importe os serviços primeiro.');return;}const pais=ss.filter(s=>!s.pai);let corpo='<p style="font-size:12.5px;color:#555">Prezada cliente, confira abaixo o catálogo de serviços e as categorias. Assinale na última coluna o que estiver errado ou o que precisa ajustar.</p>';pais.forEach(p=>{const filhos=ss.filter(x=>x.pai===p.id);corpo+=`<h3>${p.nome}${p.categoria?' — '+p.categoria:''}</h3><table><thead><tr><th style="width:44%">Serviço</th><th>Tipo</th><th>Categoria (plano de contas)</th><th style="width:20%">Validação / ajuste</th></tr></thead><tbody>`+(filhos.length?filhos:[]).map(f=>`<tr><td>${f.nome}</td><td>${f.tipo||''}</td><td>${f.categoria||''}</td><td></td></tr>`).join('')+(filhos.length?'':'<tr><td colspan="4" style="color:#999">Sem filhos cadastrados.</td></tr>')+`</tbody></table>`;});abrirRelatorio('Catálogo de Serviços — validação da cliente','Confira os nomes e as categorias e assinale ajustes',corpo);}
 function relatorioRegras(){const rs=dados().regras||[];if(!rs.length){alert('Nenhuma regra cadastrada ainda.');return;}let corpo='<p style="font-size:12.5px;color:#555">Equipe: estas são as regras que categorizam os lançamentos automaticamente. Revisem e apontem correções na última coluna (descrições escritas de forma diferente, categoria errada, etc.).</p><table><thead><tr><th>Se a descrição contém</th><th>Tipo</th><th>Banco</th><th>Categoria destino</th><th style="width:22%">Correção da equipe</th></tr></thead><tbody>'+rs.map(r=>`<tr><td><b>${r.contem||''}</b></td><td>${r.tipo||'qualquer'}</td><td>${r.banco||'qualquer'}</td><td>${r.categoria||''}</td><td></td></tr>`).join('')+'</tbody></table>';abrirRelatorio('Relatório de Regras — análise e correção','Para a equipe revisar e corrigir',corpo);}
 function abrirServico(sid){const ss=dados().servicos||[];const s=sid?ss.find(x=>x.id===sid):null;window._editServId=sid||'';const v=k=>s&&s[k]?String(s[k]).replace(/"/g,'&quot;'):'';
-  const cats=dados().categorias.slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero)));
+  const cats=dados().categorias.slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));
   const catOpts='<option value="">— escolha a categoria —</option>'+cats.map(c=>`<option value="${c.nome}"${s&&s.categoria===c.nome?' selected':''}>${c.numero?c.numero+' · ':''}${c.nome}</option>`).join('');
   const pais=ss.filter(x=>!x.pai&&x.id!==sid);
   const paiOpts='<option value="">— nenhum (este é um serviço pai) —</option>'+pais.map(p=>`<option value="${p.id}"${s&&s.pai===p.id?' selected':''}>${p.nome}</option>`).join('');
@@ -2526,7 +2568,7 @@ function renderCategorias(){const cats=(dados().categorias||[]);
   document.getElementById('catLista').innerHTML=html||'<div class="vazio">Nenhuma categoria.</div>';}
 
 // ===================== ORÇAMENTO =====================
-function preencherOrcCatSelect(){const sel=document.getElementById('oCat');const atual=sel.value;sel.innerHTML=dados().categorias.filter(c=>c.tipo==='despesa').slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero))).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');if(atual)sel.value=atual;}
+function preencherOrcCatSelect(){const sel=document.getElementById('oCat');const atual=sel.value;sel.innerHTML=dados().categorias.filter(c=>c.tipo==='despesa').slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');if(atual)sel.value=atual;}
 function salvarOrcamento(){const cat=document.getElementById('oCat').value;const valor=parseFloat(document.getElementById('oValor').value);if(!cat){alert('Escolha uma categoria.');return;}if(isNaN(valor)||valor<0){alert('Informe um valor válido.');return;}const o=dados().orcamentos.find(o=>o.categoria===cat);if(o)o.valor=valor;else dados().orcamentos.push({id:id(),categoria:cat,valor});saveApp();document.getElementById('oValor').value='';renderOrcamento();}
 function excluirOrcamento(cat){dados().orcamentos=dados().orcamentos.filter(o=>o.categoria!==cat);saveApp();renderOrcamento();}
 function montarOrcMes(){const sel=document.getElementById('orcMes');const atual=sel.value;const meses=periodosDisponiveis();const hoje=new Date().toISOString().slice(0,7);const lista=[...new Set([hoje,...meses])].sort().reverse();sel.innerHTML=lista.map(m=>{const[a,mm]=m.split('-');const nome=new Date(a,mm-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return `<option value="${m}">${nome.charAt(0).toUpperCase()+nome.slice(1)}</option>`;}).join('');if(atual&&[...sel.options].some(o=>o.value===atual))sel.value=atual;}
@@ -2573,6 +2615,7 @@ function renderTags(){if(!document.getElementById('tgLista'))return;montarTagCor
 // ===================== IMPORTAR (multiformato) =====================
 function parseData(s){s=(s||'').trim();let m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m)return `${m[3]}-${m[2]}-${m[1]}`;m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return `${m[1]}-${m[2]}-${m[3]}`;m=s.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);if(m)return `20${m[3]}-${m[2]}-${m[1]}`;m=s.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m)return `${m[3]}-${m[2]}-${m[1]}`;return '';}
 function parseValor(s){s=(s||'').toString().replace(/[R$\s]/g,'');if(s.includes(',')&&s.includes('.')){s=s.replace(/\./g,'').replace(',','.');}else if(s.includes(',')){s=s.replace(',','.');}return parseFloat(s)||0;}
+function fmtMoedaInput(s){if(s===''||s===null||s===undefined)return '';return parseValor(s).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function impModo(){return window._impModoAtual||'extrato';}
 function lerArquivo(ev,modo){const f=ev.target.files[0];if(!f)return;window._impModoAtual=modo||'extrato';const rc=document.getElementById('impResultadoCard');if(rc){rc.style.display='';rc.scrollIntoView({behavior:'smooth',block:'nearest'});}const ext=f.name.split('.').pop().toLowerCase();window._impRaw=null;window._impTx=null;document.getElementById('previewArea').innerHTML='';document.getElementById('mapeamento').style.display='none';
   if(ext==='pdf'){const r=new FileReader();r.onload=async e=>{try{window._impTx=await lerPDF(e.target.result);if(!window._impTx.length){alert('Não encontrei linhas com data e valor neste PDF. Se o relatório tiver outro formato, exporte em CSV ou Excel.');return;}document.getElementById('mapeamento').style.display='none';previewImport();}catch(x){alert('Não consegui ler o PDF: '+((x&&x.message)||x)+'. Tente exportar em CSV ou Excel.');}};r.readAsArrayBuffer(f);return;}
@@ -2803,7 +2846,7 @@ function renderComparativoUnidades(){const box=document.getElementById('comparat
   html+=linha('Margem líquida',m=>pct(m.margem));html+='</tbody></table></div></div>';box.innerHTML=html;}
 
 // ===================== VENCIMENTOS RECORRENTES =====================
-function atualizaVencCat(){const sel=document.getElementById('vcCat');if(sel){const a=sel.value;sel.innerHTML='<option value="">— sem categoria —</option>'+dados().categorias.filter(c=>c.tipo==='despesa').slice().sort((x,y)=>catNumKey(x.numero).localeCompare(catNumKey(y.numero))).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');if(a)sel.value=a;}const em=document.getElementById('vcEmail');if(em&&!em.value)em.value=dados().emailContas||'';}
+function atualizaVencCat(){const sel=document.getElementById('vcCat');if(sel){const a=sel.value;sel.innerHTML='<option value="">— sem categoria —</option>'+dados().categorias.filter(c=>c.tipo==='despesa').slice().sort((x,y)=>semAc(x.nome||"").localeCompare(semAc(y.nome||""),"pt-BR")).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');if(a)sel.value=a;}const em=document.getElementById('vcEmail');if(em&&!em.value)em.value=dados().emailContas||'';}
 function salvarEmailContas(){const em=document.getElementById('vcEmail');if(em){dados().emailContas=em.value.trim();saveApp();}}
 function salvarVencimento(){const nome=document.getElementById('vcNome').value.trim();const dia=parseInt(document.getElementById('vcDia').value);const cat=document.getElementById('vcCat').value;
   if(!nome){alert('Informe o nome da obrigação.');return;}if(isNaN(dia)||dia<1||dia>31){alert('Dia de vencimento inválido.');return;}
@@ -2831,9 +2874,9 @@ function empresaAtiva(){const es=dados().empresas||[];const uf=unidadeAtual();if
 function abrirEmpresa(eid){const es=dados().empresas||[];const e=eid?es.find(x=>x.id===eid):null;window._editEmpresaId=eid||'';const v=k=>e&&e[k]?String(e[k]).replace(/"/g,'&quot;'):'';
   document.getElementById('modalConteudo').innerHTML=`<h3>${e?'Editar filial':'Nova filial / empresa'}</h3><div class="form-grid">
     <div style="grid-column:span 6"><div class="cap" style="margin:0 0 4px">Para uma nova empresa, informe a razão social. Para adicionar uma filial a uma empresa já existente, repita a <b>mesma razão social</b> e mude só a Unidade.</div></div>
-    <div style="grid-column:span 4"><label>Unidade / filial (identifica e filtra o sistema)</label><input id="eUnidade" placeholder="Ex: AURIUM CAXIAS" value="${v('unidade')}"></div>
+    <div style="grid-column:span 4"><label>Unidade / filial (identifica e filtra o sistema)</label><input id="eUnidade" placeholder="Ex: Matriz" value="${v('unidade')}"></div>
     <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo"><option value="">—</option><option${e&&e.tipo==='Matriz'?' selected':''}>Matriz</option><option${e&&e.tipo==='Filial'?' selected':''}>Filial</option></select></div>
-    <div style="grid-column:span 4"><label>Razão social (empresa)</label><input id="eRazao" placeholder="Ex: AURIUM SAUDE LTDA" value="${v('razaoSocial')}"></div>
+    <div style="grid-column:span 4"><label>Razão social (empresa)</label><input id="eRazao" placeholder="Ex: EMPRESA LTDA" value="${v('razaoSocial')}"></div>
     <div style="grid-column:span 2"><label>Responsável</label><input id="eResp" value="${v('responsavel')}"></div>
     <div style="grid-column:span 3"><label>CNPJ</label><input id="eCnpj" placeholder="00.000.000/0001-00" value="${v('cnpj')}"></div>
     <div style="grid-column:span 3"><label>E-mail</label><input id="eEmail" value="${v('email')}"></div>
@@ -2849,7 +2892,7 @@ function abrirEmpresa(eid){const es=dados().empresas||[];const e=eid?es.find(x=>
     <div style="grid-column:span 6"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600"><input type="checkbox" id="eAtiva" ${(!e||e.ativa!==false)?'checked':''} style="width:auto;margin:0"> Empresa ativa (aparece para novos lançamentos; desmarque quando encerrar)</label></div>
     </div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="salvarEmpresa()">Salvar empresa</button></div>`;
   document.getElementById('modalBg').classList.add('show');}
-function salvarEmpresa(){const g=i=>{const el=document.getElementById(i);return el?el.value.trim():'';};const unidade=g('eUnidade');if(!unidade){alert('Informe a Unidade (ex: AURIUM MATRIZ).');return;}dados().empresas=dados().empresas||[];const eid=window._editEmpresaId;const rec={unidade,tipo:g('eTipo'),razaoSocial:g('eRazao'),responsavel:g('eResp'),cnpj:g('eCnpj'),email:g('eEmail'),telefone:g('eTel'),logradouro:g('eLograd'),numero:g('eNumero'),complemento:g('eCompl'),cep:g('eCep'),bairro:g('eBairro'),municipio:g('eMunicipio'),uf:g('eUf').toUpperCase(),dataSituacao:g('eDataSit'),ativa:(document.getElementById('eAtiva')?document.getElementById('eAtiva').checked:true)};
+function salvarEmpresa(){const g=i=>{const el=document.getElementById(i);return el?el.value.trim():'';};const unidade=g('eUnidade');if(!unidade){alert('Informe a Unidade (ex: Matriz).');return;}dados().empresas=dados().empresas||[];const eid=window._editEmpresaId;const rec={unidade,tipo:g('eTipo'),razaoSocial:g('eRazao'),responsavel:g('eResp'),cnpj:g('eCnpj'),email:g('eEmail'),telefone:g('eTel'),logradouro:g('eLograd'),numero:g('eNumero'),complemento:g('eCompl'),cep:g('eCep'),bairro:g('eBairro'),municipio:g('eMunicipio'),uf:g('eUf').toUpperCase(),dataSituacao:g('eDataSit'),ativa:(document.getElementById('eAtiva')?document.getElementById('eAtiva').checked:true)};
   if(eid){const e=dados().empresas.find(x=>x.id===eid);if(e){const antigo=e.unidade;Object.assign(e,rec);if(antigo!==unidade){dados().lancamentos.forEach(l=>{if((l.unidade||'')===antigo)l.unidade=unidade;});(dados().bancos||[]).forEach(b=>{if((b.unidade||'')===antigo)b.unidade=unidade;});}}}
   else{if(dados().empresas.some(x=>(x.unidade||'').toLowerCase()===unidade.toLowerCase())){alert('Já existe uma empresa com essa Unidade.');return;}rec.id=id();dados().empresas.push(rec);}
   syncUnidades();saveApp();fecharModal();render();renderEmpresas();}
@@ -2870,8 +2913,8 @@ function renderEmpresas(){const tb=document.getElementById('tbodyEmpresas');if(!
   tb.innerHTML=html;}
 function abrirBanco(bid){const bs=dados().bancos||[];const b=bid?bs.find(x=>x.id===bid):null;window._editBancoId=bid||'';const v=k=>b&&b[k]!=null?String(b[k]).replace(/"/g,'&quot;'):'';const uns=dados().unidades||[];const opts=`<option value="">— sem unidade —</option>`+uns.map(u=>`<option value="${u}"${b&&b.unidade===u?' selected':''}>${u}</option>`).join('');const ativo=b?b.ativo!==false:true;
   document.getElementById('modalConteudo').innerHTML=`<h3>${b?'Editar conta':'Nova conta'}</h3><div class="form-grid">
-    <div style="grid-column:span 4"><label>Banco / Conta</label><input id="bkNome" placeholder="Ex: Nubank Aurium Caxias" value="${v('nome')}"></div>
-    <div style="grid-column:span 2"><label>Saldo inicial (R$)</label><input type="text" inputmode="decimal" id="bkSaldo" value="${b?(+b.saldoInicial||0).toFixed(2).replace('.',','):''}" onblur="if(this.value)this.value=(parseValor(this.value)||0).toFixed(2).replace('.',',')"></div>
+    <div style="grid-column:span 4"><label>Banco / Conta</label><input id="bkNome" placeholder="Ex: Nubank Matriz" value="${v('nome')}"></div>
+    <div style="grid-column:span 2"><label>Saldo inicial (R$)</label><input type="text" inputmode="decimal" id="bkSaldo" value="${b?(+b.saldoInicial||0).toFixed(2).replace('.',','):''}" onblur="if(this.value)this.value=fmtMoedaInput(this.value)"></div>
     <div style="grid-column:span 2"><label>Agência</label><input id="bkAg" value="${v('agencia')}"></div>
     <div style="grid-column:span 2"><label>Conta</label><input id="bkConta" value="${v('conta')}"></div>
     <div style="grid-column:span 2"><label>Unidade</label><select id="bkUnidade">${opts}</select></div>
@@ -3093,7 +3136,7 @@ function baixarConta(pid){const p=dados().lancamentos.find(l=>l.id===pid);if(!p)
   const _venc=p.dataVencimento||p.data;
   const _atras=(_venc&&_venc<hoje)?Math.round((new Date(hoje)-new Date(_venc))/864e5):0;
   const _ehACl=ehAClassificar(p);
-  const _cats=(dados().categorias||[]).filter(c=>c.tipo===p.tipo).slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero)));
+  const _cats=(dados().categorias||[]).filter(c=>c.tipo===p.tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));
   const _catOpts=_cats.map(c=>`<option value="${c.nome}"${p.categoria===c.nome?' selected':''}>${c.nome}</option>`).join('');
   let matchHtml='';if(m){matchHtml=`<div class="alerta ok" style="margin:8px 0"><span>✅</span><div>Encontrei no extrato: <b>${moeda(m.valor)}</b>${m.data?' em '+new Date(m.data+'T00:00:00').toLocaleDateString('pt-BR'):''}${m.banco?' · '+m.banco:''}. <button class="btn peq" onclick="confirmarBaixaMatch()" style="margin-left:6px">Vincular a este</button></div></div>`;}
   document.getElementById('modalConteudo').innerHTML=`<h3>Dar baixa — ${p.descricao||p.cliente||''}</h3>
@@ -3143,7 +3186,7 @@ function incluirConta(){const cats=(dados().unidades||[]);
     ${cats.length?`<div><label>Unidade</label><select id="icUnidade">${cats.map(u=>`<option>${u}</option>`).join('')}</select></div>`:''}
     </div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="salvarConta()">Incluir</button></div>`;
   document.getElementById('modalBg').classList.add('show');recarregaIcCat();}
-function recarregaIcCat(){const tipo=document.getElementById('icTipo').value;document.getElementById('icCat').innerHTML=dados().categorias.filter(c=>c.tipo===tipo).slice().sort((a,b)=>catNumKey(a.numero).localeCompare(catNumKey(b.numero))).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');}
+function recarregaIcCat(){const tipo=document.getElementById('icTipo').value;document.getElementById('icCat').innerHTML=dados().categorias.filter(c=>c.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');}
 function salvarConta(){const data=document.getElementById('icData').value;const valor=parseFloat(document.getElementById('icValor').value);if(!data){alert('Informe o vencimento.');return;}if(isNaN(valor)||valor<=0){alert('Informe o valor.');return;}const eu=document.getElementById('icUnidade');dados().lancamentos.push({id:id(),data,descricao:document.getElementById('icDesc').value.trim(),banco:'',categoria:document.getElementById('icCat').value,tipo:document.getElementById('icTipo').value,valor,status:'previsto',unidade:eu?eu.value:'',usuario:usuariaAtivaNome()});saveApp();autoConciliar();fecharModal();render();}
 function baixarTodos(tipo){const abertos=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&l.tipo===tipo&&noUnidade(l));const usados=new Set();let n=0;
   abertos.forEach(p=>{const m=acharMatch(p,usados);if(m){usados.add(m.id);p.baixado=true;p.baixaData=new Date().toISOString().slice(0,10);p.baixaRef=m.id;n++;}});
