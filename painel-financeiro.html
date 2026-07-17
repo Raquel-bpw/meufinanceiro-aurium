@@ -520,7 +520,7 @@
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">De</label><select id="demoIni" onchange="renderDemonstrativo()" style="min-width:150px"></select></div>
           <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">Até</label><select id="demoFim" onchange="renderDemonstrativo()" style="min-width:150px"></select></div>
-          <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">Mostrar</label><select id="demoStatus" onchange="setDemoStatus(this.value)" style="min-width:170px"><option value="realizado">Realizado</option><option value="previsto">Previsto</option><option value="ambos">Realizado + Previsto</option></select></div>
+          <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">Mostrar</label><select id="demoStatus" onchange="setDemoStatus(this.value)" style="min-width:170px"><option value="realizado">Realizado</option><option value="previsto">Previsto</option></select></div>
           <button class="btn sec" onclick="exportarDemonstrativo()">↓ Excel/CSV</button>
           <button class="btn sec" onclick="imprimirDemonstrativo()">🖨 PDF</button>
         </div>
@@ -2089,11 +2089,17 @@ function renderFluxo(){
   const dEnt=ordem.map(m=>(R[m]||{ent:0}).ent),dSai=ordem.map(m=>(R[m]||{sai:0}).sai),dAcum=ordem.map(m=>{const r=R[m]||{ent:0,sai:0};ac+=r.ent-r.sai;return ac;});
   if(fluxoChart)fluxoChart.destroy();
   const ctx=document.getElementById('graficoFluxo');
-  fluxoChart=new Chart(ctx,{data:{labels,datasets:[
+  const _dsF=[
     {type:'bar',label:'Entradas',data:dEnt,backgroundColor:'rgba(22,68,122,.75)',borderRadius:6,order:2},
-    {type:'bar',label:'Saídas',data:dSai,backgroundColor:'rgba(178,59,59,.75)',borderRadius:6,order:2},
-    {type:'line',label:'Saldo acumulado',data:dAcum,borderColor:'#c1922f',backgroundColor:'rgba(193,146,47,.12)',borderWidth:3,fill:true,tension:.35,pointBackgroundColor:'#143b4d',pointRadius:4,order:1}
-  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{font:{family:'Arial',weight:'600'},usePointStyle:true,padding:18}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+moeda(c.parsed.y)}}},scales:{y:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')},grid:{color:'#f0e7e0'}},x:{grid:{display:false}}}}});
+    {type:'bar',label:'Saídas',data:dSai,backgroundColor:'rgba(178,59,59,.75)',borderRadius:6,order:2}
+  ];
+  if(mostrarPrev){
+    const dPE=ordem.map(m=>(P[m]||{ent:0}).ent),dPS=ordem.map(m=>(P[m]||{sai:0}).sai);
+    _dsF.push({type:'bar',label:'Prev. entradas',data:dPE,backgroundColor:'rgba(22,68,122,.30)',borderColor:'rgba(22,68,122,.6)',borderWidth:1,borderRadius:6,order:2});
+    _dsF.push({type:'bar',label:'Prev. saídas',data:dPS,backgroundColor:'rgba(178,59,59,.30)',borderColor:'rgba(178,59,59,.6)',borderWidth:1,borderRadius:6,order:2});
+  }
+  _dsF.push({type:'line',label:'Saldo acumulado',data:dAcum,borderColor:'#c1922f',backgroundColor:'rgba(193,146,47,.12)',borderWidth:3,fill:true,tension:.35,pointBackgroundColor:'#143b4d',pointRadius:4,order:1});
+  fluxoChart=new Chart(ctx,{data:{labels,datasets:_dsF},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{font:{family:'Arial',weight:'600'},usePointStyle:true,padding:18}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+moeda(c.parsed.y)}}},scales:{y:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')},grid:{color:'#f0e7e0'}},x:{grid:{display:false}}}}});
 }
 
 // ===================== VALIDAÇÃO =====================
