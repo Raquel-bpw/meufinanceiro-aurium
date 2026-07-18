@@ -520,7 +520,7 @@
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">De</label><select id="demoIni" onchange="renderDemonstrativo()" style="min-width:150px"></select></div>
           <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">Até</label><select id="demoFim" onchange="renderDemonstrativo()" style="min-width:150px"></select></div>
-          <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">Mostrar</label><select id="demoStatus" onchange="setDemoStatus(this.value)" style="min-width:170px"><option value="realizado">Realizado</option><option value="previsto">Previsto</option><option value="ambos">Realizado + Previsto</option></select></div>
+          <div><label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave)">Mostrar</label><select id="demoStatus" onchange="setDemoStatus(this.value)" style="min-width:170px"><option value="realizado">Realizado</option><option value="previsto">Previsto</option></select></div>
           <button class="btn sec" onclick="exportarDemonstrativo()">↓ Excel/CSV</button>
           <button class="btn sec" onclick="imprimirDemonstrativo()">🖨 PDF</button>
         </div>
@@ -821,9 +821,11 @@
         <div class="form-grid">
           <div><label>Coluna do Nome</label><select id="colCatNome"></select></div>
           <div><label>Coluna do Grupo (opcional)</label><select id="colCatGrupo"></select></div>
+          <div><label>Coluna do Tipo (opcional)</label><select id="colCatTipoCol"></select></div>
           <div><label>Tipo padrão</label><select id="colCatTipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
           <div><button class="btn" style="width:100%" onclick="previewCategorias()">Ver prévia</button></div>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="catSubstituir"> Substituir o plano de contas atual desta empresa (apaga as categorias atuais e usa só as importadas)</label>
       </div>
       <div id="catPdfTipo" style="display:none;margin-top:14px"><label>Tipo padrão das categorias do PDF</label><select id="colCatTipoPdf" style="max-width:220px"><option value="despesa">Despesa</option><option value="receita">Receita</option></select> <button class="btn peq" onclick="previewCategorias()">Ver prévia</button></div>
       <div id="catPreview" style="margin-top:14px"></div>
@@ -1129,14 +1131,14 @@ let APP={perfilAtivo:null,perfis:[]};
 let donutChart=null, fluxoChart=null;
 let calRef=new Date(), csvLinhas=[], csvHeader=[];
 
-const GRUPOS_DESPESA=['CUSTOS VARIÁVEIS','DESPESAS COM PESSOAL','DESPESAS COMERCIAIS','DESPESAS ADMINISTRATIVAS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','INVESTIMENTOS / RESERVAS','Fornecedores','Despesa Fixa','Não Operacional','Investimento','Outras Variáveis'];
+const GRUPOS_DESPESA=['CUSTOS VARIÁVEIS','DESPESAS COM PESSOAL','DESPESAS COMERCIAIS','DESPESAS ADMINISTRATIVAS','DESPESAS COM MANUTENÇÃO','CMV','IMPOSTOS','PESSOAL','ADMINISTRATIVA','FINANCEIRO','INVESTIMENTOS / RESERVAS','Fornecedores','Despesa Fixa','Não Operacional','Investimento','Outras Variáveis'];
 const LABEL_GRUPO={'RECEITA DE SERVIÇOS':'ENTRADAS DE SERVIÇOS','RECEITA DE PRODUTOS':'ENTRADAS DE PRODUTOS','OUTRAS RECEITAS':'OUTRAS ENTRADAS OPERACIONAIS','OUTRAS ENTRADAS':'OUTRAS ENTRADAS (não compõem o lucro)','INVESTIMENTOS / RESERVAS':'INVESTIMENTOS','CUSTOS VARIÁVEIS':'DESPESAS VARIÁVEIS'};
-const ORDEM_GRUPOS=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS','OUTRAS ENTRADAS'].concat(GRUPOS_DESPESA);
-const GRUPOS_FATURAMENTO=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS'];
-const CORES_GRUPO={'ENTRADAS':'#16447a','CUSTOS VARIÁVEIS':'#1c4d61','DESPESAS COM PESSOAL':'#c1922f','DESPESAS COMERCIAIS':'#2f6479','DESPESAS ADMINISTRATIVAS':'#3a5a8c','DESPESAS COM MANUTENÇÃO':'#6b4a7a','FINANCEIRO':'#b23b3b','INVESTIMENTOS / RESERVAS':'#2e7d5b','Fornecedores':'#1c4d61','Despesa Fixa':'#c1922f','Não Operacional':'#3a5a8c','Investimento':'#6b4a7a','Outras Variáveis':'#16447a','Receita':'#16447a'};
+const ORDEM_GRUPOS=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','VENDA DE MERCADORIA','OUTRAS RECEITAS','OUTRAS ENTRADAS'].concat(GRUPOS_DESPESA);
+const GRUPOS_FATURAMENTO=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','VENDA DE MERCADORIA','OUTRAS RECEITAS'];
+const CORES_GRUPO={'ENTRADAS':'#16447a','CUSTOS VARIÁVEIS':'#1c4d61','DESPESAS COM PESSOAL':'#c1922f','DESPESAS COMERCIAIS':'#2f6479','DESPESAS ADMINISTRATIVAS':'#3a5a8c','DESPESAS COM MANUTENÇÃO':'#6b4a7a','FINANCEIRO':'#b23b3b','INVESTIMENTOS / RESERVAS':'#2e7d5b','Fornecedores':'#1c4d61','Despesa Fixa':'#c1922f','Não Operacional':'#3a5a8c','Investimento':'#6b4a7a','Outras Variáveis':'#16447a','VENDA DE MERCADORIA':'#16447a','CMV':'#1c4d61','IMPOSTOS':'#8a5a2b','PESSOAL':'#c1922f','ADMINISTRATIVA':'#3a5a8c','Receita':'#16447a'};
 function catNumKey(n){return String(n||'').split('.').map(x=>String(parseInt(x,10)||0).padStart(4,'0')).join('.');}
-const VARIAVEIS=['CUSTOS VARIÁVEIS','Fornecedores','Outras Variáveis'];
-const FIXOS=['DESPESAS COM PESSOAL','DESPESAS ADMINISTRATIVAS','DESPESAS COMERCIAIS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','Despesa Fixa'];
+const VARIAVEIS=['CUSTOS VARIÁVEIS','CMV','Fornecedores','Outras Variáveis'];
+const FIXOS=['DESPESAS COM PESSOAL','DESPESAS ADMINISTRATIVAS','DESPESAS COMERCIAIS','DESPESAS COM MANUTENÇÃO','IMPOSTOS','PESSOAL','ADMINISTRATIVA','FINANCEIRO','Despesa Fixa'];
 const INVESTIMENTOS=['INVESTIMENTOS / RESERVAS','Investimento'];
 const NAO_OPERACIONAL=['Não Operacional'];
 const CLASSIFICADOS=[].concat(VARIAVEIS,FIXOS,INVESTIMENTOS,NAO_OPERACIONAL);
@@ -1924,13 +1926,13 @@ function catsDemo(){return dados().categorias||[];}
 function isEntradaCat(c){return c.tipo==='receita'||['Receita','ENTRADAS','RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS','OUTRAS ENTRADAS'].includes(c.grupo);}
 function ehForaDoLucro(c){return (c&&c.grupo)==='OUTRAS ENTRADAS';}
 function catForaDoLucro(catNome){const c=(dados().categorias||[]).find(x=>x.nome===catNome);return !!c&&c.grupo==='OUTRAS ENTRADAS';}
-function demoLancs(stOv){const st=stOv||window._demoStatus||'realizado';return dados().lancamentos.filter(l=>{if(!l.data||!noUnidade(l))return false;if(st==='realizado')return l.status!=='previsto';if(st==='previsto')return l.status==='previsto'&&!l.baixado;return (l.status!=='previsto')||!l.baixado;});}
+function demoLancs(){const st=window._demoStatus||'realizado';return dados().lancamentos.filter(l=>{if(!l.data||!noUnidade(l))return false;if(st==='realizado')return l.status!=='previsto';if(st==='previsto')return l.status==='previsto'&&!l.baixado;return (l.status!=='previsto')||!l.baixado;});}
 function setDemoStatus(v){window._demoStatus=v;renderDemonstrativo();}
 function demoMeses(){const s=new Set();demoLancs().forEach(l=>s.add(l.data.slice(0,7)));return [...s].sort();}
-function somaCatDemo(cat,ym,st){const ct=catTipo(cat)||'receita';return demoLancs(st).filter(l=>l.categoria===cat&&l.data.slice(0,7)===ym).reduce((s,l)=>s+((l.tipo===ct?1:-1)*(+l.valor||0)),0);}
-function totEntradaDemo(ym,st){return catsDemo().filter(c=>isEntradaCat(c)&&!ehMovimento(c.nome)&&c.grupo!=='OUTRAS ENTRADAS').reduce((s,c)=>s+somaCatDemo(c.nome,ym,st),0);}
+function somaCatDemo(cat,ym){const ct=catTipo(cat)||'receita';return demoLancs().filter(l=>l.categoria===cat&&l.data.slice(0,7)===ym).reduce((s,l)=>s+((l.tipo===ct?1:-1)*(+l.valor||0)),0);}
+function totEntradaDemo(ym){return catsDemo().filter(c=>isEntradaCat(c)&&!ehMovimento(c.nome)&&c.grupo!=='OUTRAS ENTRADAS').reduce((s,c)=>s+somaCatDemo(c.nome,ym),0);}
 function totOutrasEntradasDemo(ym){return catsDemo().filter(c=>c.grupo==='OUTRAS ENTRADAS'&&!ehMovimento(c.nome)).reduce((s,c)=>s+somaCatDemo(c.nome,ym),0);}
-function totDespesaDemo(ym,st){return catsDemo().filter(c=>!isEntradaCat(c)&&!ehMovimento(c.nome)).reduce((s,c)=>s+somaCatDemo(c.nome,ym,st),0);}
+function totDespesaDemo(ym){return catsDemo().filter(c=>!isEntradaCat(c)&&!ehMovimento(c.nome)).reduce((s,c)=>s+somaCatDemo(c.nome,ym),0);}
 function saldoIniTotalDemo(){return bancosVisiveis().reduce((s,b)=>s+(+b.saldoInicial||0),0);}
 function saldoAntesDemo(ym,allM){let s=saldoIniTotalDemo();allM.forEach(m=>{if(m<ym)s+=totEntradaDemo(m)-totDespesaDemo(m);});return s;}
 function ehMovimento(cn){cn=cn||'';return /transfer[êe]ncia|fatura de cart[ãa]o|cart[ãa]o de cr[ée]dito|aplica|resgate/i.test(cn);}
@@ -1945,25 +1947,23 @@ function renderDemonstrativo(){
   const ini=si&&si.value?si.value:(allM[0]||''),fim=sf&&sf.value?sf.value:(allM[allM.length-1]||'');
   const meses=allM.filter(m=>m>=ini&&m<=fim);
   if(!meses.length){box.innerHTML='<div class="vazio" style="padding:20px">Sem lançamentos no período selecionado.</div>';_demoAOA=[];return;}
-  const _mode=window._demoStatus||'realizado';
-  const cols=_mode==='ambos'?meses.flatMap(m=>[{ym:m,st:'realizado',lbl:mesLabelD(m)+' · Realiz.'},{ym:m,st:'previsto',lbl:mesLabelD(m)+' · Prev.'}]):meses.map(m=>({ym:m,st:_mode,lbl:mesLabelD(m)}));
-  const teCol=cols.map(c=>totEntradaDemo(c.ym,c.st));
-  const pct=(v,i)=>{const te=teCol[i];if(!te)return '–';return Math.round(v/te*100)+'%';};
-  const cab=['Categoria'];cols.forEach(c=>{cab.push(c.lbl);cab.push('%');});cab.push(_mode==='ambos'?'TOTAL REAL.':'TOTAL');
+  const teMes=meses.map(totEntradaDemo);
+  const pct=(v,i)=>{const te=teMes[i];if(!te)return '–';return Math.round(v/te*100)+'%';};
+  const cab=['Categoria'];meses.forEach(m=>{cab.push(mesLabelD(m));cab.push('%');});cab.push('TOTAL');
   const aoa=[cab];
   let html='<table style="font-size:11px;white-space:nowrap;border-collapse:collapse;width:100%"><thead><tr>'+cab.map((h,i)=>`<th style="${i===0?'text-align:left':'text-align:right'};padding:7px 8px;border-bottom:2px solid var(--borda)">${h}</th>`).join('')+'</tr></thead><tbody>';
   let _gc=0;
   const gtit=n=>{_gc++;const gc=_gc;html+=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog)"><td colspan="${cab.length}" style="font-weight:700;color:var(--vinho);padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>${n}</td></tr>`;const lx=[n];for(let k=1;k<cab.length;k++)lx.push('');aoa.push(lx);};
-  const lcat=n=>{let tot=0,row=`<tr class="dgr${_gc}"><td style="text-align:left;padding:4px 8px">${n}</td>`;const lx=[n];cols.forEach((c,i)=>{const v=somaCatDemo(n,c.ym,c.st);if(_mode!=='ambos'||c.st!=='previsto')tot+=v;row+=`<td style="text-align:right;padding:4px 8px">${v?moeda(v):'–'}</td><td style="text-align:right;color:var(--suave);padding:4px 6px">${v?pct(v,i):''}</td>`;lx.push(v?v.toFixed(2):'');lx.push(v?pct(v,i):'');});row+=`<td style="text-align:right;font-weight:700;padding:4px 8px">${moeda(tot)}</td></tr>`;lx.push(tot.toFixed(2));html+=row;aoa.push(lx);};
-  const larr=(n,arr,strong)=>{let row=`<tr style="${strong?'background:var(--ouro-claro);font-weight:700':'font-weight:600'}"><td style="text-align:left;padding:5px 8px">${n}</td>`;const lx=[n];arr.forEach(v=>{row+=`<td style="text-align:right;padding:5px 8px">${moeda(v)}</td><td></td>`;lx.push(v.toFixed(2));lx.push('');});const t=arr.reduce((s,v,i)=>s+((_mode==='ambos'&&cols[i]&&cols[i].st==='previsto')?0:v),0);row+=`<td style="text-align:right;padding:5px 8px">${moeda(t)}</td></tr>`;lx.push(t.toFixed(2));html+=row;aoa.push(lx);};
+  const lcat=n=>{let tot=0,row=`<tr class="dgr${_gc}"><td style="text-align:left;padding:4px 8px">${n}</td>`;const lx=[n];meses.forEach((m,i)=>{const v=somaCatDemo(n,m);tot+=v;row+=`<td style="text-align:right;padding:4px 8px">${v?moeda(v):'–'}</td><td style="text-align:right;color:var(--suave);padding:4px 6px">${v?pct(v,i):''}</td>`;lx.push(v?v.toFixed(2):'');lx.push(v?pct(v,i):'');});row+=`<td style="text-align:right;font-weight:700;padding:4px 8px">${moeda(tot)}</td></tr>`;lx.push(tot.toFixed(2));html+=row;aoa.push(lx);};
+  const larr=(n,arr,strong)=>{let row=`<tr style="${strong?'background:var(--ouro-claro);font-weight:700':'font-weight:600'}"><td style="text-align:left;padding:5px 8px">${n}</td>`;const lx=[n];arr.forEach(v=>{row+=`<td style="text-align:right;padding:5px 8px">${moeda(v)}</td><td></td>`;lx.push(v.toFixed(2));lx.push('');});const t=arr.reduce((s,v)=>s+v,0);row+=`<td style="text-align:right;padding:5px 8px">${moeda(t)}</td></tr>`;lx.push(t.toFixed(2));html+=row;aoa.push(lx);};
   // LABEL_GRUPO e ORDEM_GRUPOS são globais (compartilhados com a tela de Categorias)
   // ---- Classificação editável das ENTRADAS (ajuste os padrões para mover uma conta de bloco) ----
   const _reSoc=/empr[ée]stimo.*s[óo]cia|s[óo]cia.*empr[ée]stimo|dev\.?\s*distribui|devolu.*lucro/i;
   const _reNop=/empr[ée]stimo|financiamento|integraliza|capital social|aporte|rendimento|receita.*financeir|resgate.*aplica/i;
   const classEnt=n=>_reSoc.test(n||'')?'soc':(_reNop.test(n||'')?'nop':'op');
   const entKind=k=>catsDemo().filter(c=>!ehMovimento(c.nome)&&isEntradaCat(c)&&classEnt(c.nome)===k);
-  const somaCats=(cs,ym,st)=>cs.reduce((s,c)=>s+somaCatDemo(c.nome,ym,st),0);
-  const vivas=cs=>cs.filter(c=>cols.some(cc=>somaCatDemo(c.nome,cc.ym,cc.st)!==0));
+  const somaCats=(cs,m)=>cs.reduce((s,c)=>s+somaCatDemo(c.nome,m),0);
+  const vivas=cs=>cs.filter(c=>meses.some(m=>somaCatDemo(c.nome,m)!==0));
   const alfa=cs=>cs.slice().sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
   const gsec=n=>{html+=`<tr style="background:var(--ouro-claro)"><td colspan="${cab.length}" style="font-weight:800;color:var(--vinho);padding:9px 8px;font-size:12.5px;letter-spacing:.3px">${n}</td></tr>`;const lx=[n];for(let k=1;k<cab.length;k++)lx.push('');aoa.push(lx);};
   // ===== ENTRADAS OPERACIONAIS =====
@@ -1973,10 +1973,10 @@ function renderDemonstrativo(){
     const cs=vivas(opCats.filter(c=>g==='OUTRAS RECEITAS'?(c.grupo!=='RECEITA DE SERVIÇOS'&&c.grupo!=='RECEITA DE PRODUTOS'):c.grupo===g));
     if(!cs.length)return;
     gtit(LABEL_GRUPO[g]||g);alfa(cs).forEach(c=>lcat(c.nome));
-    larr('Subtotal '+(LABEL_GRUPO[g]||g),cols.map(c=>somaCats(cs,c.ym,c.st)),false);
+    larr('Subtotal '+(LABEL_GRUPO[g]||g),meses.map(m=>somaCats(cs,m)),false);
   });
-  const totEntOp=(ym,st)=>somaCats(opCats,ym,st);
-  larr('TOTAL DE ENTRADAS OPERACIONAIS',cols.map(c=>totEntOp(c.ym,c.st)),true);
+  const totEntOp=m=>somaCats(opCats,m);
+  larr('TOTAL DE ENTRADAS OPERACIONAIS',meses.map(totEntOp),true);
   // ===== SAÍDAS OPERACIONAIS =====
   gsec('SAÍDAS OPERACIONAIS');
   const subPessoal=n=>/pr[óo]-?labore|distribui[çc][aã]o de lucro/i.test(n||'')?'Sócias':'Equipe';
@@ -1992,35 +1992,34 @@ function renderDemonstrativo(){
       const seen=[];ord.forEach(c=>{const s=subFn(c.nome);if(!seen.includes(s))seen.push(s);});
       const ORDSUB={'Empréstimos':1,'Despesa financeira':2,'Investimentos':3,'Equipe':1,'Sócias':2};
       seen.sort((a,b)=>(ORDSUB[a]||9)-(ORDSUB[b]||9));
-      seen.forEach(sg=>{const sub=ord.filter(c=>subFn(c.nome)===sg);subhdr(sg);sub.forEach(c=>lcat(c.nome));larr('  Subtotal '+sg,cols.map(c=>somaCats(sub,c.ym,c.st)),false);});
+      seen.forEach(sg=>{const sub=ord.filter(c=>subFn(c.nome)===sg);subhdr(sg);sub.forEach(c=>lcat(c.nome));larr('  Subtotal '+sg,meses.map(m=>somaCats(sub,m)),false);});
     }else{ord.forEach(c=>lcat(c.nome));}
   });
   const outras=vivas(catsDemo().filter(c=>!isEntradaCat(c)&&!GRUPOS_DESPESA.includes(c.grupo||'')&&!ehMovimento(c.nome)));
   if(outras.length){gtit('OUTRAS SAÍDAS');alfa(outras).forEach(c=>lcat(c.nome));}
-  larr('TOTAL DE SAÍDAS OPERACIONAIS',cols.map(c=>totDespesaDemo(c.ym,c.st)),true);
+  larr('TOTAL DE SAÍDAS OPERACIONAIS',meses.map(totDespesaDemo),true);
   // ===== RESULTADO DA OPERAÇÃO =====
-  const resOp=cols.map(c=>totEntOp(c.ym,c.st)-totDespesaDemo(c.ym,c.st));
+  const resOp=meses.map(m=>totEntOp(m)-totDespesaDemo(m));
   larr('= RESULTADO DA OPERAÇÃO',resOp,true);
   // ===== NÃO OPERACIONAL (financiamentos, capital, rendimentos) =====
   const nopCats=vivas(entKind('nop'));
-  const totNop=(ym,st)=>somaCats(nopCats,ym,st);
+  const totNop=m=>somaCats(nopCats,m);
   if(nopCats.length){
     gsec('NÃO OPERACIONAL — financiamentos, capital e rendimentos');
     alfa(nopCats).forEach(c=>lcat(c.nome));
-    larr('TOTAL NÃO OPERACIONAL',cols.map(c=>totNop(c.ym,c.st)),false);
+    larr('TOTAL NÃO OPERACIONAL',meses.map(totNop),false);
   }
-  const resTot=cols.map((c,i)=>resOp[i]+totNop(c.ym,c.st));
+  const resTot=meses.map((m,i)=>resOp[i]+totNop(m));
   larr('= RESULTADO TOTAL DO PERÍODO',resTot,true);
   // ===== MOVIMENTO ENTRE SÓCIAS (informativo, fora dos resultados) =====
   const socCats=vivas(entKind('soc'));
   if(socCats.length){
     gsec('MOVIMENTO ENTRE SÓCIAS — fora dos resultados');
     alfa(socCats).forEach(c=>lcat(c.nome));
-    larr('Subtotal movimento entre sócias',cols.map(c=>somaCats(socCats,c.ym,c.st)),false);
+    larr('Subtotal movimento entre sócias',meses.map(m=>somaCats(socCats,m)),false);
     html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">Empréstimo da sócia e devolução de lucro — entram no caixa, mas não compõem a operação nem o resultado do período.</td></tr>`;
   }
   // ===== SALDO DO CAIXA (reconcilia todo o movimento, inclusive sócias) =====
-  if(_mode!=='ambos'){
   const entTudo=m=>catsDemo().filter(c=>!ehMovimento(c.nome)&&isEntradaCat(c)).reduce((s,c)=>s+somaCatDemo(c.nome,m),0);
   const sini=[],sfim=[],varM=[];let acc=saldoIniTotalDemo();allM.forEach(mm=>{if(mm<meses[0])acc+=entTudo(mm)-totDespesaDemo(mm);});
   meses.forEach(m=>{const v=entTudo(m)-totDespesaDemo(m);sini.push(acc);varM.push(v);acc+=v;sfim.push(acc);});
@@ -2032,33 +2031,16 @@ function renderDemonstrativo(){
   const _tot=meses.map((mm,i)=>_bcs.reduce((s,b)=>s+(b.arr[i]||0),0));
   _gc++;const gc=_gc;let hr=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog);color:var(--vinho);font-weight:700"><td style="text-align:left;padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>SALDO EM CONTA</td>`;const hx=['SALDO EM CONTA'];_tot.forEach(v=>{hr+=`<td style="text-align:right;padding:7px 8px">${moeda(v)}</td><td></td>`;hx.push(v.toFixed(2));hx.push('');});hr+=`<td style="text-align:right;padding:7px 8px">${moeda(_tot[_tot.length-1]||0)}</td></tr>`;hx.push((_tot[_tot.length-1]||0).toFixed(2));html+=hr;aoa.push(hx);
   _bcs.forEach(b=>{let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px">${b.nome}</td>`;const lx=[b.nome];b.arr.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px">${moeda(b.arr[b.arr.length-1]||0)}</td></tr>`;lx.push((b.arr[b.arr.length-1]||0).toFixed(2));html+=row;aoa.push(lx);});
-  const _nv=meses.map((mm,i)=>(sfim[i]||0)-(_tot[i]||0));if(_nv.some(v=>Math.round(v)!==0)){let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px;color:var(--rubro)">Não vinculado a banco (a conciliar)</td>`;const lx=['Não vinculado a banco'];_nv.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${moeda(_nv[_nv.length-1]||0)}</td></tr>`;lx.push((_nv[_nv.length-1]||0).toFixed(2));html+=row;aoa.push(lx);html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">A diferença é de lançamentos em banco/conta fora das cadastradas nesta unidade. Edite-os e escolha a conta para o saldo bater com o caixa.</td></tr>`;}}
-  }
-  else {
-  gsec('SALDO DO CAIXA');
-  const _entR=m=>catsDemo().filter(c=>!ehMovimento(c.nome)&&isEntradaCat(c)).reduce((s,c)=>s+somaCatDemo(c.nome,m,'realizado'),0);
-  const _siniR={},_sfimR={},_varR={},_varP={};let _acc=saldoIniTotalDemo();allM.forEach(mm=>{if(mm<meses[0])_acc+=_entR(mm)-totDespesaDemo(mm,'realizado');});
-  meses.forEach(m=>{const v=_entR(m)-totDespesaDemo(m,'realizado');_siniR[m]=_acc;_varR[m]=v;_acc+=v;_sfimR[m]=_acc;const ep=catsDemo().filter(c=>!ehMovimento(c.nome)&&isEntradaCat(c)).reduce((s,c)=>s+somaCatDemo(c.nome,m,'previsto'),0);_varP[m]=ep-totDespesaDemo(m,'previsto');});
-  const _srow=(nome,fR,fP,strong)=>{let row=`<tr style="${strong?'background:var(--ouro-claro);font-weight:700':'font-weight:600'}"><td style="text-align:left;padding:5px 8px">${nome}</td>`;const lx=[nome];let tE=null;cols.forEach(c=>{const val=c.st==='previsto'?fP(c.ym):fR(c.ym);row+=`<td style="text-align:right;padding:5px 8px">${val==null?'–':moeda(val)}</td><td></td>`;lx.push(val==null?'':val.toFixed(2));lx.push('');if(c.st!=='previsto')tE=val;});row+=`<td style="text-align:right;padding:5px 8px">${tE==null?'':moeda(tE)}</td></tr>`;lx.push(tE==null?'':tE.toFixed(2));html+=row;aoa.push(lx);};
-  _srow('Saldo inicial',m=>_siniR[m],m=>null,false);
-  _srow('Variação do caixa no mês',m=>_varR[m],m=>_varP[m],false);
-  _srow('Saldo final',m=>_sfimR[m],m=>null,true);
-  {const _bcs=bancosVisiveis().map(b=>({nome:b.nome,arr:cols.map(c=>{if(c.st==='previsto')return null;let s=(+b.saldoInicial||0);allM.forEach(mm=>{if(mm<=c.ym)s+=demoLancs('realizado').filter(l=>(l.banco||'')===b.nome&&l.data.slice(0,7)===mm).reduce((a,l)=>a+(l.tipo==='receita'?(+l.valor||0):-(+l.valor||0)),0);});return s;})}));
-  const _tot=cols.map((c,i)=>c.st==='previsto'?null:_bcs.reduce((s,b)=>s+(b.arr[i]||0),0));
-  _gc++;const gc=_gc;let hr=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog);color:var(--vinho);font-weight:700"><td style="text-align:left;padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>SALDO EM CONTA</td>`;const hx=['SALDO EM CONTA'];let _tE=null;cols.forEach((c,i)=>{const v=_tot[i];hr+=`<td style="text-align:right;padding:7px 8px">${v==null?'–':moeda(v)}</td><td></td>`;hx.push(v==null?'':v.toFixed(2));hx.push('');if(c.st!=='previsto')_tE=v;});hr+=`<td style="text-align:right;padding:7px 8px">${moeda(_tE||0)}</td></tr>`;hx.push((_tE||0).toFixed(2));html+=hr;aoa.push(hx);
-  _bcs.forEach(b=>{let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px">${b.nome}</td>`;const lx=[b.nome];let bE=null;cols.forEach((c,i)=>{const v=b.arr[i];row+=`<td style="text-align:right;padding:4px 8px">${(v==null||!v)?'–':moeda(v)}</td><td></td>`;lx.push((v==null||!v)?'':v.toFixed(2));lx.push('');if(c.st!=='previsto')bE=v;});row+=`<td style="text-align:right;padding:4px 8px">${moeda(bE||0)}</td></tr>`;lx.push((bE||0).toFixed(2));html+=row;aoa.push(lx);});
-  const _nv=cols.map((c,i)=>c.st==='previsto'?null:((_sfimR[c.ym]||0)-(_tot[i]||0)));if(_nv.some(v=>v!=null&&Math.round(v)!==0)){let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px;color:var(--rubro)">Não vinculado a banco (a conciliar)</td>`;const lx=['Não vinculado a banco'];let nE=null;cols.forEach((c,i)=>{const v=_nv[i];row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${(v==null||!v)?'–':moeda(v)}</td><td></td>`;lx.push((v==null||!v)?'':v.toFixed(2));lx.push('');if(c.st!=='previsto')nE=v;});row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${moeda(nE||0)}</td></tr>`;lx.push((nE||0).toFixed(2));html+=row;aoa.push(lx);html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">A diferença é de lançamentos em banco/conta fora das cadastradas nesta unidade. Edite-os e escolha a conta para o saldo bater com o caixa.</td></tr>`;}}
-  }
-
+  const _nv=meses.map((mm,i)=>(sfim[i]||0)-(_tot[i]||0));if(_nv.some(v=>Math.round(v)!==0)){let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px;color:var(--rubro)">Não vinculado a banco (a conciliar)</td>`;const lx=['Não vinculado a banco'];_nv.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px;color:var(--rubro)">${moeda(_nv[_nv.length-1]||0)}</td></tr>`;lx.push((_nv[_nv.length-1]||0).toFixed(2));html+=row;aoa.push(lx);html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">A diferença é de lançamentos sem banco definido. Edite-os e escolha a conta para o saldo dos bancos bater com o caixa.</td></tr>`;}}
   // ===== RESUMO / VEREDITO =====
   {
-    const tOp=resOp.reduce((a,v,i)=>a+((_mode==='ambos'&&cols[i].st==='previsto')?0:v),0),tNop=meses.reduce((s,m)=>s+totNop(m,'realizado'),0);
+    const tOp=resOp.reduce((a,b)=>a+b,0),tNop=meses.reduce((s,m)=>s+totNop(m),0);
     gsec('RESUMO DO PERÍODO');
     html+=`<tr><td colspan=${cab.length} style="padding:10px 8px;font-size:12px;line-height:1.7"><b>A operação ${tOp>=0?'gerou':'consumiu'} ${moeda(Math.abs(tOp))}</b> de caixa no período. Movimentos não operacionais somaram ${moeda(tNop)}. <b>Resultado total: ${moeda(tOp+tNop)}.</b><br><span style="color:${tOp>=0?'var(--verde)':'var(--rubro)'};font-weight:700">${tOp>=0?'✓ A operação se sustenta sozinha.':'⚠ A operação ainda não se paga — o caixa depende de aportes ou empréstimos.'}</span></td></tr>`;
     const lx=['RESUMO: operação '+tOp.toFixed(2)+' · não operacional '+tNop.toFixed(2)+' · total '+(tOp+tNop).toFixed(2)];for(let k=1;k<cab.length;k++)lx.push('');aoa.push(lx);
   }
   {
-    const somaCatMeses=cat=>meses.reduce((s,m)=>s+somaCatDemo(cat,m,'realizado'),0);
+    const somaCatMeses=cat=>meses.reduce((s,m)=>s+somaCatDemo(cat,m),0);
     const trIn=somaCatMeses('(+) Transferência Entrada'),trOut=somaCatMeses('(-) Transferência Saída');
     const cardIn=somaCatMeses('(+) Liquidação Fatura de Cartão'),cardOut=somaCatMeses('(-) Pagamento de Fatura de Cartão');
     if(Math.round(trIn)===Math.round(trOut)&&Math.round(cardIn)===Math.round(cardOut)){
@@ -2068,16 +2050,16 @@ function renderDemonstrativo(){
     }
   }
   {
-    const aplicMeses=cols.map(c=>c.st==='previsto'?0:totAplicadoDemo(c.ym));
+    const aplicMeses=meses.map(totAplicadoDemo);
     if(aplicMeses.some(v=>v)){
       larr('Investido no período (aplicações)',aplicMeses,false);
       html+=`<tr><td colspan=${cab.length} style="padding:6px 8px;font-size:11px;color:var(--suave)">Valor aplicado no período — sai do caixa operacional e vira patrimônio (não é despesa).</td></tr>`;
     }
   }
-  {const _bcs=bancosVisiveis().map(b=>({nome:b.nome,arr:cols.map(c=>{if(_mode==='ambos'&&c.st==='previsto')return null;let s=(+b.saldoInicial||0);allM.forEach(mm=>{if(mm<=c.ym)s+=demoLancs(_mode==='ambos'?'realizado':c.st).filter(l=>(l.banco||'')===b.nome&&l.data.slice(0,7)===mm).reduce((a,l)=>a+(l.tipo==='receita'?(+l.valor||0):-(+l.valor||0)),0);});return s;})}));
-  const _tot=cols.map((c,i)=>(_mode==='ambos'&&c.st==='previsto')?null:_bcs.reduce((s,b)=>s+(b.arr[i]||0),0));
-  _gc++;const gc=_gc;let hr=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog);color:var(--vinho);font-weight:700"><td style="text-align:left;padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>SALDO EM CONTA</td>`;const hx=['SALDO EM CONTA'];let _tE=null;cols.forEach((c,i)=>{const v=_tot[i];hr+=`<td style="text-align:right;padding:7px 8px">${v==null?'–':moeda(v)}</td><td></td>`;hx.push(v==null?'':v.toFixed(2));hx.push('');if(!(_mode==='ambos'&&c.st==='previsto'))_tE=v;});hr+=`<td style="text-align:right;padding:7px 8px">${moeda(_tE||0)}</td></tr>`;hx.push((_tE||0).toFixed(2));html+=hr;aoa.push(hx);
-  _bcs.forEach(b=>{let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px">${b.nome}</td>`;const lx=[b.nome];let bE=null;cols.forEach((c,i)=>{const v=b.arr[i];row+=`<td style="text-align:right;padding:4px 8px">${(v==null||!v)?'–':moeda(v)}</td><td></td>`;lx.push((v==null||!v)?'':v.toFixed(2));lx.push('');if(!(_mode==='ambos'&&c.st==='previsto'))bE=v;});row+=`<td style="text-align:right;padding:4px 8px">${moeda(bE||0)}</td></tr>`;lx.push((bE||0).toFixed(2));html+=row;aoa.push(lx);});}
+  {const _bcs=bancosVisiveis().map(b=>({nome:b.nome,arr:meses.map(m=>{let s=(+b.saldoInicial||0);allM.forEach(mm=>{if(mm<=m)s+=demoLancs().filter(l=>(l.banco||'')===b.nome&&l.data.slice(0,7)===mm).reduce((a,l)=>a+(l.tipo==='receita'?(+l.valor||0):-(+l.valor||0)),0);});return s;})}));
+  const _tot=meses.map((mm,i)=>_bcs.reduce((s,b)=>s+(b.arr[i]||0),0));
+  _gc++;const gc=_gc;let hr=`<tr onclick="toggleDemoGrp(${gc})" style="cursor:pointer;background:var(--vinho-fog);color:var(--vinho);font-weight:700"><td style="text-align:left;padding:7px 8px"><span id="demoArr${gc}" style="display:inline-block;width:13px">▾</span>SALDO EM CONTA</td>`;const hx=['SALDO EM CONTA'];_tot.forEach(v=>{hr+=`<td style="text-align:right;padding:7px 8px">${moeda(v)}</td><td></td>`;hx.push(v.toFixed(2));hx.push('');});hr+=`<td style="text-align:right;padding:7px 8px">${moeda(_tot[_tot.length-1]||0)}</td></tr>`;hx.push((_tot[_tot.length-1]||0).toFixed(2));html+=hr;aoa.push(hx);
+  _bcs.forEach(b=>{let row=`<tr class="dgr${gc}"><td style="text-align:left;padding:4px 8px 4px 24px">${b.nome}</td>`;const lx=[b.nome];b.arr.forEach(v=>{row+=`<td style="text-align:right;padding:4px 8px">${v?moeda(v):'–'}</td><td></td>`;lx.push(v?v.toFixed(2):'');lx.push('');});row+=`<td style="text-align:right;padding:4px 8px">${moeda(b.arr[b.arr.length-1]||0)}</td></tr>`;lx.push((b.arr[b.arr.length-1]||0).toFixed(2));html+=row;aoa.push(lx);});}
   html+='</tbody></table>';
   box.innerHTML=html;_demoAOA=aoa;
 }
@@ -2565,16 +2547,22 @@ function lerCategoriasArq(ev){const f=ev.target.files[0];if(!f)return;const ext=
   if(ext==='xlsx'||ext==='xls'){const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});if(!rows.length){alert('Planilha vazia.');return;}const header=rows[0].map(h=>String(h||''));window._catRows={header,rows:rows.slice(1).map(rw=>header.map((_,i)=>String(rw[i]??'')))};mostrarMapCat(header);}catch(x){alert('Não consegui ler o Excel.');}};r.readAsArrayBuffer(f);return;}
   if(ext==='csv'||ext==='txt'){const r=new FileReader();r.onload=e=>{let txt=decodeArq(e.target.result);const sep=(txt.split(';').length>txt.split(',').length)?';':',';const linhas=txt.split(/\r?\n/).filter(l=>l.trim());const header=linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));window._catRows={header,rows:linhas.slice(1).map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')))};mostrarMapCat(header);};r.readAsArrayBuffer(f);return;}
   alert('Formato não suportado. Use Excel, CSV ou PDF.');}
-function mostrarMapCat(header){const colN=document.getElementById('colCatNome'),colG=document.getElementById('colCatGrupo');
+function mostrarMapCat(header){const colN=document.getElementById('colCatNome'),colG=document.getElementById('colCatGrupo'),colT=document.getElementById('colCatTipoCol');
   colN.innerHTML=header.map((h,i)=>`<option value="${i}">${h||('Coluna '+(i+1))}</option>`).join('');
   colG.innerHTML='<option value="-1">— sem grupo —</option>'+header.map((h,i)=>`<option value="${i}">${h||('Coluna '+(i+1))}</option>`).join('');
-  header.forEach((h,i)=>{const hl=(h||'').toLowerCase();if(hl.includes('nome')||hl.includes('conta')||hl.includes('categ')||hl.includes('descri'))colN.value=i;if(hl.includes('grupo'))colG.value=i;});
+  colT.innerHTML='<option value="-1">— usar tipo padrão —</option>'+header.map((h,i)=>`<option value="${i}">${h||('Coluna '+(i+1))}</option>`).join('');
+  header.forEach((h,i)=>{const hl=(h||'').toLowerCase();if(hl.includes('nome')||hl.includes('conta')||hl.includes('categ')||hl.includes('descri'))colN.value=i;if(hl.includes('grupo'))colG.value=i;if(hl==='tipo'||hl.includes('tipo'))colT.value=i;});
   document.getElementById('catMap').style.display='block';}
 function previewCategorias(){let itens=[];
   if(window._catLinhas){const tipo=document.getElementById('colCatTipoPdf').value;window._catLinhas.forEach(l=>{let n=l.trim();if(n.length<2)return;if(/^(total|grupo|tipo|categoria|plano de contas|receitas?|despesas?)\b/i.test(n))return;n=n.replace(/^[0-9.\-)\s]+/,'').trim();if(n.length<2)return;itens.push({nome:n,grupo:tipo==='receita'?'Receita':'Outras Variáveis',tipo});});}
-  else if(window._catRows){const ci=+document.getElementById('colCatNome').value,cg=+document.getElementById('colCatGrupo').value,tipo=document.getElementById('colCatTipo').value;
-    window._catRows.rows.forEach(r=>{const n=(r[ci]||'').trim();if(!n)return;let grupo;if(tipo==='receita')grupo='Receita';else{const gt=(cg>=0?(r[cg]||''):'').toLowerCase().trim();grupo=GRUPOS_DESPESA.find(g=>g.toLowerCase()===gt)||'Outras Variáveis';}itens.push({nome:n,grupo,tipo});});}
-  const exist=new Set(dados().categorias.map(c=>c.nome.toLowerCase()));const vistos=new Set();
+  else if(window._catRows){const ci=+document.getElementById('colCatNome').value,cg=+document.getElementById('colCatGrupo').value,ct=+((document.getElementById('colCatTipoCol')||{value:-1}).value),tipoPad=document.getElementById('colCatTipo').value;
+    window._catRows.rows.forEach(r=>{const n=(r[ci]||'').trim();if(!n)return;
+      let tipo=tipoPad;if(ct>=0){const tv=(r[ct]||'').toLowerCase().trim();if(tv.startsWith('rec'))tipo='receita';else if(tv.startsWith('des'))tipo='despesa';}
+      const gtl=(cg>=0?(r[cg]||''):'').toLowerCase().trim();let grupo;
+      if(tipo==='receita')grupo=GRUPOS_FATURAMENTO.find(g=>g.toLowerCase()===gtl)||'Receita';
+      else grupo=GRUPOS_DESPESA.find(g=>g.toLowerCase()===gtl)||'Outras Variáveis';
+      itens.push({nome:n,grupo,tipo});});}
+  const _subst=(document.getElementById('catSubstituir')||{}).checked;const exist=_subst?new Set():new Set(dados().categorias.map(c=>c.nome.toLowerCase()));const vistos=new Set();
   itens=itens.filter(i=>{const k=i.nome.toLowerCase();if(vistos.has(k)||exist.has(k))return false;vistos.add(k);return true;});
   window._catTemp=itens;const box=document.getElementById('catPreview');
   if(!itens.length){box.innerHTML='<div class="alerta"><span>ℹ️</span><div>Nenhuma categoria nova encontrada (ou todas já existem).</div></div>';return;}
@@ -2582,7 +2570,7 @@ function previewCategorias(){let itens=[];
   itens.slice(0,20).forEach(i=>html+=`<tr><td>${i.nome}</td><td class=mini>${i.grupo}</td><td><span class="pill ${i.tipo==='receita'?'rec':'desp'}">${i.tipo}</span></td></tr>`);
   html+='</tbody></table></div>';if(itens.length>20)html+=`<div class=mini style="margin-top:6px">... e mais ${itens.length-20}.</div>`;
   html+=`<div style="margin-top:12px"><button class="btn" onclick="confirmarCategorias()">Importar ${itens.length} categoria(s)</button></div>`;box.innerHTML=html;}
-function confirmarCategorias(){const t=window._catTemp||[];t.forEach(i=>dados().categorias.push({id:id(),nome:i.nome,grupo:i.grupo,tipo:i.tipo}));saveApp();alert(t.length+' categoria(s) importada(s).');document.getElementById('catPreview').innerHTML='';document.getElementById('catMap').style.display='none';document.getElementById('catPdfTipo').style.display='none';document.getElementById('arqCat').value='';render();}
+function confirmarCategorias(){const t=window._catTemp||[];const subst=(document.getElementById('catSubstituir')||{}).checked;if(subst){if(!confirm('Substituir o plano de contas vai APAGAR as categorias atuais desta empresa e deixar só as '+t.length+' importadas. Continuar?'))return;dados().categorias=[];}t.forEach(i=>dados().categorias.push({id:id(),nome:i.nome,grupo:i.grupo,tipo:i.tipo}));saveApp();alert(t.length+' categoria(s) '+(subst?'importada(s) — plano substituído.':'importada(s).'));document.getElementById('catPreview').innerHTML='';document.getElementById('catMap').style.display='none';document.getElementById('catPdfTipo').style.display='none';document.getElementById('arqCat').value='';var _cb=document.getElementById('catSubstituir');if(_cb)_cb.checked=false;render();}
 function renderCategorias(){const cats=(dados().categorias||[]);
   const grupos=[];cats.forEach(c=>{const g=c.grupo||'Sem grupo';if(!grupos.includes(g))grupos.push(g);});
   grupos.sort((a,b)=>{let ia=ORDEM_GRUPOS.indexOf(a),ib=ORDEM_GRUPOS.indexOf(b);if(ia<0)ia=999;if(ib<0)ib=999;return ia-ib||a.localeCompare(b);});
