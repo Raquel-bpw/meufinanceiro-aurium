@@ -930,6 +930,8 @@
       <input type="file" id="arqZoop" accept=".csv,.txt" onchange="importarZoop(event)">
     </div>
 
+    <div class="card"><h2>Importar Planilha a Receber (.xlsx)</h2><div class="cap">Planilha com as abas LINKS e BOLETOS. Cada linha vira contas a receber (parcelas por vencimento). O importador PULA o que já foi importado — pode reimportar a planilha do ano inteiro sem duplicar.</div><input type="file" id="arqAReceber" accept=".xlsx,.xls" onchange="importarAReceber(event)"></div>
+
     <div class="card" id="impResultadoCard" style="display:none">
       <h2>Conferir e importar</h2>
       <div class="alerta"><span>💡</span><div>Para arquivos <b>PDF</b>, exporte em CSV ou OFX no app do banco — o painel lê esses formatos. As suas regras de categorização são aplicadas na hora.</div></div>
@@ -2314,7 +2316,7 @@ function abrirNovoLancamento(){
     <div style="grid-column:span 3"><label>Tipo</label><select id="fTipo" onchange="lancTipoChg()"><option value="receita">Receita (entrada)</option><option value="despesa">Despesa (saída)</option><option value="transfer">Transferência entre contas</option><option value="estorno_receita">Estorno de receita (saída em receita)</option><option value="estorno_despesa">Estorno de despesa (entrada em despesa)</option></select></div>
     <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fValor" placeholder="0,00" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div id="wrapFCat" style="grid-column:span 3"><label>Categoria</label><select id="fCat"></select></div>
-    <div id="wrapFBanco" style="grid-column:span 3"><label>Banco / Conta</label><select id="fBanco"></select></div>
+    <div id="wrapFBanco" style="grid-column:span 3"><label>Banco / Conta</label><select id="fBanco" onchange="autoUnidadeDoBanco('f')"></select></div>
     <div id="wrapFDe" style="grid-column:span 3;display:none"><label>De (conta de origem)</label><select id="fDe"></select></div>
     <div id="wrapFPara" style="grid-column:span 3;display:none"><label>Para (conta de destino)</label><select id="fPara"></select></div>
     <div id="wrapFForma" style="grid-column:span 3"><label>Forma de recebimento</label><select id="fForma">${formas.map(x=>`<option value="${x}">${x||'—'}</option>`).join('')}</select></div>
@@ -2398,7 +2400,7 @@ function editarLanc(lid){
     <div><label>Valor</label><input type="text" inputmode="decimal" id="eValor" value="${fmtMoedaInput(l.valor)}" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div style="grid-column:span 2"><label>Categoria</label><select id="eCat"></select></div>
     <div style="grid-column:span 2"><label>Forma</label><select id="eForma">${formas.map(x=>`<option value="${x}" ${(l.formaPagto||'')===x?'selected':''}>${x||'—'}</option>`).join('')}</select></div>
-    <div style="grid-column:span 2"><label>Banco</label><select id="eBanco">${bopts}</select></div>
+    <div style="grid-column:span 2"><label>Banco</label><select id="eBanco" onchange="autoUnidadeDoBanco('e')">${bopts}</select></div>
     <div style="grid-column:span 2"><label>Cartão de crédito (opcional)</label><select id="eCartao">${copts}</select></div>
     <div><label>Situação</label><select id="eStatus"><option value="realizado" ${l.status!=='previsto'?'selected':''}>Realizado</option><option value="previsto" ${l.status==='previsto'?'selected':''}>Previsto</option></select></div>
     ${(dados().unidades||[]).length?`<div><label>Unidade</label><select id="eUnidade"><option value="">— sem unidade —</option>${dados().unidades.map(u=>`<option ${l.unidade===u?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
@@ -2716,6 +2718,43 @@ function confirmarImport(){const t=window._impTemp||[];dados().lancamentos.push(
 
 // ===================== EXPORT / BACKUP =====================
 function exportarCSV(){const arr=dados().lancamentos.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));let csv='Data;Descricao;Banco;Categoria;Grupo;Tipo;Situacao;Valor\n';arr.forEach(l=>csv+=`${l.data};${(l.descricao||'').replace(/;/g,',')};${l.banco||''};${l.categoria||''};${grupoDaCategoria(l.categoria)};${l.tipo};${l.status||'realizado'};${(l.valor||0).toFixed(2).replace('.',',')}\n`);baixar(csv,`lancamentos-${perfil().nome}.csv`,'text/csv');}
+function autoUnidadeDoBanco(pre){try{var bs=document.getElementById(pre+'Banco');if(!bs)return;var uni=(typeof bancoUnidade==='function')?bancoUnidade(bs.value):'';if(!uni)return;var us=document.getElementById(pre+'Unidade');if(!us)return;for(var i=0;i<us.options.length;i++){if(us.options[i].value===uni||us.options[i].textContent.trim()===uni){us.selectedIndex=i;break;}}}catch(e){}}
+function mostrarBotaoBackupPasta(){try{if(document.getElementById('bkPrompt'))return;if(typeof _bkDirHandle==='undefined'||!_bkDirHandle)return;var d=document.createElement('div');d.id='bkPrompt';d.style.cssText='position:fixed;right:18px;bottom:18px;z-index:400;background:#143b4d;color:#fff;border:1px solid #c1922f;border-radius:12px;padding:14px 16px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);max-width:300px;font-size:13px;font-family:inherit';d.innerHTML='<div style="margin-bottom:10px">Está na hora do backup de hoje. Salvar na pasta <b>'+esc((_bkDirHandle&&_bkDirHandle.name)||'')+'</b>?</div><button onclick="fazerBackupPastaAgora()" style="background:#c1922f;color:#143b4d;border:none;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer">Salvar backup na pasta</button> <span onclick="this.parentNode.remove()" style="cursor:pointer;margin-left:10px;font-size:12px;opacity:.85">agora não</span>';document.body.appendChild(d);}catch(e){}}
+function fazerBackupPastaAgora(){var p=document.getElementById('bkPrompt');if(p)p.remove();try{exportarBackup();}catch(e){alert('Não consegui gerar o backup: '+((e&&e.message)||e));}}
+function importarAReceber(ev){var f=ev.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{
+  var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+  var num=function(v){if(typeof v==='number')return v;var s=String(v||'').trim().replace(/[^0-9,.-]/g,'');if(s.indexOf(',')>=0&&s.indexOf('.')>=0)s=s.replace(/\./g,'').replace(',','.');else if(s.indexOf(',')>=0)s=s.replace(',','.');return parseFloat(s)||0;};
+  var toISO=function(d){if(!d)return'';if(d instanceof Date){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}var s=String(d).trim();var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);return'';};
+  var addMes=function(iso,n){if(!iso)return'';var p=iso.split('-');var dt=new Date(+p[0],(+p[1]-1)+n,+p[2]);return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2);};
+  var chave=function(nome,venc,valor){return (nome||'').toLowerCase().trim()+'|'+venc+'|'+Math.round((+valor||0)*100);};
+  var existentes={};(dados().lancamentos||[]).forEach(function(l){existentes[chave(l.cliente,l.data,l.valor)]=true;if(l.vencimento)existentes[chave(l.cliente,l.vencimento,l.valor)]=true;});
+  var novos=[],pulados=0;
+  wb.SheetNames.forEach(function(sn){
+    var low=sn.toLowerCase();var ehLink=low.indexOf('link')>=0;var ehBoleto=low.indexOf('boleto')>=0;if(!ehLink&&!ehBoleto)return;
+    var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+    var hi=-1;for(var i=0;i<rows.length;i++){if(rows[i].some(function(c){return String(c).toLowerCase().indexOf('nome do cliente')>=0;})){hi=i;break;}}
+    if(hi<0)return;
+    var H=rows[hi].map(function(c){return String(c).toLowerCase();});
+    var col=function(t){for(var j=0;j<H.length;j++){if(H[j].indexOf(t)>=0)return j;}return -1;};
+    var iNome=col('nome'),iTot=col('total'),iRec=col('receber'),iParc=col('parcela'),iVParc=col('valor da parcela'),iVenc=col('vencimento'),iEmiss=col('emiss'),iDataP=col('data'),iDesc=col('descri');
+    var cat=ehLink?'Recebimento de Vendas a Prazo – Serviços':'Recebimento de Vendas a Prazo – Produtos';
+    for(var k=hi+1;k<rows.length;k++){var rw=rows[k];if(!rw)continue;
+      var nome=iNome>=0?String(rw[iNome]||'').trim():'';if(!nome||/apague|exemplo/i.test(nome))continue;
+      var nparc=parseInt(num(iParc>=0?rw[iParc]:1))||1;if(nparc<1)nparc=1;
+      var venc1=toISO(iVenc>=0?rw[iVenc]:'');if(!venc1)venc1=toISO(iEmiss>=0?rw[iEmiss]:(iDataP>=0?rw[iDataP]:''));
+      var totalRec=ehLink?num(iRec>=0?rw[iRec]:0):num(iTot>=0?rw[iTot]:0);
+      var vparc=(iVParc>=0&&num(rw[iVParc])>0)?num(rw[iVParc]):(nparc>0?Math.round((totalRec/nparc)*100)/100:totalRec);
+      var desc=iDesc>=0?String(rw[iDesc]||'').trim():'';
+      if(!venc1||!(vparc>0))continue;
+      for(var p=0;p<nparc;p++){var venc=addMes(venc1,p);var key=chave(nome,venc,vparc);if(existentes[key]){pulados++;continue;}existentes[key]=true;
+        novos.push({id:id(),data:venc,vencimento:venc,cliente:nome,descricao:(ehLink?'Link':'Boleto')+' — '+nome+(desc?' ('+desc+')':'')+' — parcela '+(p+1)+'/'+nparc,servico:'',categoria:cat,tipo:'receita',valor:vparc,status:'previsto',banco:'',unidade:'',formaPagto:ehLink?'LINK':'BOLETO',usuario:(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():'')});
+      }
+    }
+  });
+  if(!novos.length){alert('Nada novo para importar.'+(pulados?(' '+pulados+' parcela(s) já existiam e foram puladas.'):' Confira se a planilha tem as abas LINKS/BOLETOS preenchidas.'));ev.target.value='';return;}
+  dados().lancamentos.push.apply(dados().lancamentos,novos);saveApp();render();
+  alert('Planilha importada!\nParcelas novas: '+novos.length+'\nJá existiam (puladas): '+pulados);ev.target.value='';
+}catch(err){alert('Não consegui ler a planilha: '+((err&&err.message)||err));}};r.readAsArrayBuffer(f);}
 function nomeArquivoBackup(ext){const p=perfil();const razao=((p.dados.empresas&&p.dados.empresas[0]&&p.dados.empresas[0].razaoSocial)||(p.dados.cliente&&p.dados.cliente.razaoSocial)||p.nome||'cliente');const slug=razao.replace(/[^a-z0-9]/gi,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');const hoje=new Date().toISOString().slice(0,10);return `${slug}_${hoje}.${ext}`;}
 let _bkDirHandle=null;
 function _bkLabel(){var b=document.getElementById('btnPastaBackup');if(b)b.textContent=_bkDirHandle?('📁 '+_bkDirHandle.name):'📁 Escolher pasta de backup';}
@@ -3213,7 +3252,7 @@ function initApos(){
   const _fd0=document.getElementById('fData');if(_fd0)_fd0.value=new Date().toISOString().slice(0,10);
   const _emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'sua empresa');document.getElementById('saudacao').innerHTML=`Bem-vinda à gestão da <b>${_emp}</b>.`;
   atualizaGrupoSelect();render();
-  if(autoBackupDevido())setTimeout(exportarBackup,1800);
+  if(autoBackupDevido()){if(typeof _bkDirHandle!=='undefined'&&_bkDirHandle)setTimeout(mostrarBotaoBackupPasta,1200);else setTimeout(exportarBackup,1800);}
 }
 /* ---- Boot: com nuvem ligada, exige login; sem nuvem, roda local como antes ---- */
 async function boot(){
