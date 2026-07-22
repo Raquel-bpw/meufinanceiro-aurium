@@ -1796,17 +1796,29 @@ function imprimirRelatorio(){
   const r=window._relAtual;if(!r){alert('Gere um relatório primeiro, clicando em um dos cards.');return;}
   const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}
   const p=perfil();
-  w.document.write(`<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><title>${r.titulo} — ${esc(p.nome)}</title><style>@page{margin:14mm}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#2b1a20}h1{font-family:Georgia,serif;color:#143b4d;font-size:22px;margin-bottom:4px}.sub{color:#999;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #eee;padding:7px 9px;font-size:12.5px;text-align:left}th{text-transform:uppercase;font-size:10px;color:#999}th:not(:first-child),td:not(:first-child){text-align:right}</style></head><body><h1>${r.titulo}</h1><div class=sub>${(p&&p.nome)||''} · gerado em ${new Date().toLocaleString('pt-BR')}</div><table><thead><tr>${r.colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${r.linhas.map(l=>'<tr>'+l.map(v=>`<td>${v}</td>`).join('')+'</tr>').join('')||'<tr><td colspan="'+r.colunas.length+'">Sem dados.</td></tr>'}</tbody></table></body></html>`);
+  w.document.write(`<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><title>${r.titulo} — ${esc(p.nome)}</title><style>@page{margin:14mm}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#2b1a20}h1{font-family:Georgia,serif;color:#143b4d;font-size:22px;margin-bottom:4px}.sub{color:#999;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #eee;padding:7px 9px;font-size:12.5px;text-align:left}th{text-transform:uppercase;font-size:10px;color:#999}th:not(:first-child),td:not(:first-child){text-align:right}</style></head><body><h1>${r.titulo}</h1><div class=sub>${esc(_relEmpresa())} · ${esc(_relUniLabel())} · ${esc(_relPerLabel())} · gerado em ${new Date().toLocaleString('pt-BR')}</div><table><thead><tr>${r.colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${r.linhas.map(l=>'<tr>'+l.map(v=>`<td>${v}</td>`).join('')+'</tr>').join('')||'<tr><td colspan="'+r.colunas.length+'">Sem dados.</td></tr>'}</tbody></table></body></html>`);
   w.document.close();setTimeout(()=>{w.focus();w.print();},400);
 }
+function _relEmpresa(){try{var p=perfil();var d=dados();return (d&&d.cliente&&d.cliente.razaoSocial)||(p&&p.dados&&p.dados.empresas&&p.dados.empresas[0]&&p.dados.empresas[0].razaoSocial)||(p&&p.nome)||'';}catch(e){return '';}}
+function _relUniLabel(){try{var st=window._flt&&window._flt.uni;if(!st||!st.size)return 'Todas as unidades';return [].slice.call(st).map(function(v){return v||'(sem unidade)';}).join(', ');}catch(e){return 'Todas as unidades';}}
+function _relPerLabel(){try{var st=window._flt&&window._flt.per;if(!st||!st.size)return 'Todos os periodos';return [].slice.call(st).map(function(v){if((''+v).indexOf('ano-')===0)return 'Ano '+(''+v).slice(4);var pp=(''+v).split('-');if(pp.length===2){var dt=new Date(+pp[0],+pp[1]-1,1);var t=dt.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1);}return v;}).join(', ');}catch(e){return 'Todos os periodos';}}
+function _relDataHora(){return new Date().toLocaleString('pt-BR');}
+function _relCabAOA(titulo){return [[_relEmpresa()],[titulo],['Unidade: '+_relUniLabel()+'  ·  Periodo: '+_relPerLabel()],['Gerado em '+_relDataHora()],['']];}
+function _relSlug(t){return (t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'_');}
+function _relArqNome(titulo,ext){ext=ext||'xlsx';var emp=_relSlug(_relEmpresa());return _relSlug(titulo||'Relatorio')+(emp?'_'+emp:'')+'_'+new Date().toISOString().slice(0,10)+'.'+ext;}
+function _relFmtNum(ws){try{var range=XLSX.utils.decode_range(ws['!ref']);for(var R=range.s.r;R<=range.e.r;R++){for(var C=range.s.c;C<=range.e.c;C++){var addr=XLSX.utils.encode_cell({r:R,c:C});var cell=ws[addr];if(cell&&typeof cell.v==='number'){cell.z='#,##0.00;[Red]-#,##0.00';}}}}catch(e){}}
+function _relCols(ws,n,w0){var cols=[{wch:w0||34}];for(var i=1;i<n;i++)cols.push({wch:14});ws['!cols']=cols;}
+function _desmoeda(v){if(typeof v!=='string')return v;if(v.indexOf('R$')<0)return v;if(v.indexOf('•')>=0)return 0;var neg=v.trim().charAt(0)==='-';var t=v.replace(/[^0-9.,]/g,'').replace(/\./g,'').replace(',','.');var n=parseFloat(t);if(isNaN(n))return v;return neg?-n:n;}
 function exportarRelatorio(){
-  const r=window._relAtual;if(!r){alert('Gere um relatório primeiro, clicando em um dos cards.');return;}
+  const r=window._relAtual;if(!r){alert('Gere um relatorio primeiro, clicando em um dos cards.');return;}
   try{
-    const aoa=[r.colunas,...r.linhas];
+    const corpo=r.linhas.map(function(row){return row.map(_desmoeda);});
+    const aoa=_relCabAOA(r.titulo).concat([r.colunas]).concat(corpo);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);_relCols(ws,r.colunas.length);_relFmtNum(ws);
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),r.titulo.replace(/[\\/*?:[\]]/g,'').slice(0,31)||'Relatório');
-    XLSX.writeFile(wb,r.titulo.replace(/[^\w\s-]/g,'')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  }catch(e){alert('Não consegui exportar: '+e.message);}
+    XLSX.utils.book_append_sheet(wb,ws,(r.titulo||'Relatorio').replace(/[\\/*?:[\]]/g,'').slice(0,31)||'Relatorio');
+    XLSX.writeFile(wb,_relArqNome(r.titulo));
+  }catch(e){alert('Nao consegui exportar: '+e.message);}
 }
 
 // ===================== CALENDÁRIO =====================
@@ -1850,9 +1862,10 @@ function exportarFluxoCaixa(){
   const totalIni=bancosVisiveis().reduce((s,b)=>s+(b.saldoInicial||0),0);const ym=periodoYM();
   const prior=ym?dados().lancamentos.filter(l=>l.status!=='previsto'&&noUnidade(l)&&noBanco(l)&&l.data&&l.data.slice(0,7)<ym).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0):0;
   let acc=totalIni+prior;const lista=real.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const arr=[{Data:'',Descricao:'SALDO INICIAL',Categoria:'',Banco:'',Entrada:'',Saida:'',Saldo:acc}];
-  lista.forEach(l=>{const ent=l.tipo==='receita'?(+l.valor||0):0,sai=l.tipo==='despesa'?(+l.valor||0):0;acc+=ent-sai;arr.push({Data:l.data,Descricao:l.descricao||'',Categoria:l.categoria||'',Banco:l.banco||'',Entrada:ent||'',Saida:sai||'',Saldo:acc});});
-  try{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(arr),'Fluxo de Caixa');XLSX.writeFile(wb,'Fluxo_de_Caixa_'+new Date().toISOString().slice(0,10)+'.xlsx');}catch(e){alert('Não consegui exportar: '+e.message);}}
+  const cols=['Data','Descrição','Categoria','Banco','Entrada','Saída','Saldo'];
+  const linhas=[['','SALDO INICIAL','','','','',acc]];
+  lista.forEach(l=>{const ent=l.tipo==='receita'?(+l.valor||0):0,sai=l.tipo==='despesa'?(+l.valor||0):0;acc+=ent-sai;linhas.push([l.data||'',l.descricao||'',l.categoria||'',l.banco||'',ent||'',sai||'',acc]);});
+  try{const aoa=_relCabAOA('Fluxo de Caixa').concat([cols]).concat(linhas);const ws=XLSX.utils.aoa_to_sheet(aoa);_relCols(ws,cols.length);_relFmtNum(ws);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Fluxo de Caixa');XLSX.writeFile(wb,_relArqNome('Fluxo de Caixa'));}catch(e){alert('Nao consegui exportar: '+e.message);}}
 function renderFluxoCaixa(){
   if(!document.getElementById('fcEnt'))return;
   renderFluxoSaldoBanco();
@@ -1903,8 +1916,9 @@ function exportarExtratoCSV(){
   const br=v=>Number(v||0).toFixed(2).replace('.',',');
   const esc=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
   const L=[];
-  L.push([esc('Extrato de contas — '+emp)].join(';'));
-  L.push([esc('Banco: '+d.banco)].join(';'));
+  L.push([esc(_relEmpresa()||emp)].join(';'));
+  L.push([esc('Extrato de contas')].join(';'));
+  L.push([esc('Banco: '+d.banco+'  ·  Unidade: '+_relUniLabel()+'  ·  Periodo: '+_relPerLabel())].join(';'));
   L.push([esc('Gerado em '+new Date().toLocaleString('pt-BR'))].join(';'));
   L.push('');
   L.push(['Data','Descrição','Categoria','Banco','Entrada','Saída','Saldo'].map(esc).join(';'));
@@ -2082,7 +2096,7 @@ function renderDemonstrativo(){
   html+='</tbody></table>';
   box.innerHTML=html;_demoAOA=aoa;
 }
-function exportarDemonstrativo(){if(!_demoAOA.length)renderDemonstrativo();if(!_demoAOA.length){alert('Sem dados para exportar.');return;}try{const aoa=_demoAOA.map(row=>row.map(c=>(typeof c==='string'&&/^-?\d+\.\d+$/.test(c))?parseFloat(c):c));const ws=XLSX.utils.aoa_to_sheet(aoa);const ncol=(aoa[0]||[]).length;ws['!cols']=[{wch:38}].concat(Array.from({length:Math.max(0,ncol-1)},(_,i)=>({wch:i%2?7:14})));Object.keys(ws).forEach(k=>{if(k[0]==='!')return;const cell=ws[k];if(typeof cell.v==='number'){cell.z='#,##0.00;[Red]-#,##0.00';}});const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Demonstrativo');XLSX.writeFile(wb,'Demonstrativo_Fluxo_'+new Date().toISOString().slice(0,10)+'.xlsx');}catch(e){alert('Não consegui exportar: '+e.message);}}
+function exportarDemonstrativo(){if(!_demoAOA.length)renderDemonstrativo();if(!_demoAOA.length){alert('Sem dados para exportar.');return;}try{const corpo=_demoAOA.map(row=>row.map(c=>(typeof c==='string'&&/^-?\d+\.\d+$/.test(c))?parseFloat(c):c));const ncol=(corpo[0]||[]).length;const aoa=_relCabAOA('Demonstrativo de Fluxo de Caixa').concat(corpo);const ws=XLSX.utils.aoa_to_sheet(aoa);_relCols(ws,ncol,38);_relFmtNum(ws);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Demonstrativo');XLSX.writeFile(wb,_relArqNome('Demonstrativo de Fluxo de Caixa'));}catch(e){alert('Nao consegui exportar: '+e.message);}}
 function imprimirDemonstrativo(){const box=document.getElementById('demoBox');if(!box||!box.innerHTML){renderDemonstrativo();}const emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'');const per=(typeof labelFiltro==='function')?labelFiltro('per','Todos os períodos'):'';const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}w.document.write('<html><head><meta charset=UTF-8><title>Demonstrativo de fluxo de caixa</title><style>@page{size:landscape;margin:12mm}:root{--vinho:#143b4d;--vinho2:#1c4d61;--vinho3:#2e86a8;--vinho-fog:#eef4f5;--ouro:#c1922f;--ouro2:#d9ab44;--ouro-claro:#f3e7cc;--suave:#8f8073;--borda:#e2ddd0;--verde:#2e7d46;--rubro:#a83535;--creme2:#eae3d5;--branco:#fff;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Arial,sans-serif;color:#2b1a20;padding:0}.cab{border-bottom:2px solid #c1922f;padding-bottom:10px;margin-bottom:14px}.cab h1{font-family:Georgia,serif;color:#143b4d;font-size:20px;margin:0}.cab .s{font-size:12px;color:#888;margin-top:3px}table{border-collapse:collapse;width:100%;font-size:10.5px}td,th{padding:4px 8px}.rod{margin-top:20px;text-align:center;color:#aaa;font-size:10px;border-top:1px solid #eee;padding-top:8px}</style></head><body><div class=cab><h1>Demonstrativo de Fluxo de Caixa</h1><div class=s>'+emp+(per?' · '+per:'')+' · '+({realizado:'Realizado',previsto:'Previsto',ambos:'Realizado + Previsto'}[window._demoStatus||'realizado'])+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div>'+document.getElementById('demoBox').innerHTML+'<div class=rod>INTEIRA Tech · Painel Financeiro</div></body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),350);}
 function renderFluxo(){
   renderFluxoCaixa();
@@ -2717,7 +2731,7 @@ function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new Fi
 function confirmarImport(){const t=window._impTemp||[];dados().lancamentos.push(...t);saveApp();const _nb=autoConciliar();alert(t.length+' lançamento(s) importados!'+(_nb?' '+_nb+' conta(s) prevista(s) baixada(s) automaticamente.':''));document.getElementById('previewArea').innerHTML='';document.getElementById('mapeamento').style.display='none';['arqPers','arqPlan','arqExt'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});const rc=document.getElementById('impResultadoCard');if(rc)rc.style.display='none';window._impRaw=null;window._impTx=null;autoBaixaCorrespondentes();saveApp();render();abrirAba('lancamentos');}
 
 // ===================== EXPORT / BACKUP =====================
-function exportarCSV(){const arr=dados().lancamentos.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));let csv='Data;Descricao;Banco;Categoria;Grupo;Tipo;Situacao;Valor\n';arr.forEach(l=>csv+=`${l.data};${(l.descricao||'').replace(/;/g,',')};${l.banco||''};${l.categoria||''};${grupoDaCategoria(l.categoria)};${l.tipo};${l.status||'realizado'};${(l.valor||0).toFixed(2).replace('.',',')}\n`);baixar(csv,`lancamentos-${perfil().nome}.csv`,'text/csv');}
+function exportarCSV(){const arr=dados().lancamentos.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';const br=v=>Number(v||0).toFixed(2).replace('.',',');const L=[];L.push(q(_relEmpresa()));L.push(q('Lançamentos'));L.push(q('Unidade: '+_relUniLabel()+'  ·  Periodo: '+_relPerLabel()));L.push(q('Gerado em '+_relDataHora()));L.push('');L.push(['Data','Descrição','Banco','Categoria','Grupo','Tipo','Situação','Valor'].map(q).join(';'));arr.forEach(l=>L.push([q(l.data||''),q(l.descricao||''),q(l.banco||''),q(l.categoria||''),q(grupoDaCategoria(l.categoria)),q(l.tipo),q(l.status||'realizado'),q(br(l.valor))].join(';')));const csv='\ufeff'+L.join('\r\n');baixar(csv,_relArqNome('Lancamentos','csv'),'text/csv;charset=utf-8;');}
 function autoUnidadeDoBanco(pre){try{var bs=document.getElementById(pre+'Banco');if(!bs)return;var uni=(typeof bancoUnidade==='function')?bancoUnidade(bs.value):'';if(!uni)return;var us=document.getElementById(pre+'Unidade');if(!us)return;for(var i=0;i<us.options.length;i++){if(us.options[i].value===uni||us.options[i].textContent.trim()===uni){us.selectedIndex=i;break;}}}catch(e){}}
 function mostrarBotaoBackupPasta(){try{if(document.getElementById('bkPrompt'))return;if(typeof _bkDirHandle==='undefined'||!_bkDirHandle)return;var d=document.createElement('div');d.id='bkPrompt';d.style.cssText='position:fixed;right:18px;bottom:18px;z-index:400;background:#143b4d;color:#fff;border:1px solid #c1922f;border-radius:12px;padding:14px 16px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);max-width:300px;font-size:13px;font-family:inherit';d.innerHTML='<div style="margin-bottom:10px">Está na hora do backup de hoje. Salvar na pasta <b>'+esc((_bkDirHandle&&_bkDirHandle.name)||'')+'</b>?</div><button onclick="fazerBackupPastaAgora()" style="background:#c1922f;color:#143b4d;border:none;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer">Salvar backup na pasta</button> <span onclick="this.parentNode.remove()" style="cursor:pointer;margin-left:10px;font-size:12px;opacity:.85">agora não</span>';document.body.appendChild(d);}catch(e){}}
 function fazerBackupPastaAgora(){var p=document.getElementById('bkPrompt');if(p)p.remove();try{exportarBackup();}catch(e){alert('Não consegui gerar o backup: '+((e&&e.message)||e));}}
