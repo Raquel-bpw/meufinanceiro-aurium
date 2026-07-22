@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>INTEIRA Finanças · by INTEIRA Tech</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1030,7 +1030,7 @@
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 16px">
         <button class="btn" onclick="exportarBackup()">↓ Backup agora (.json)</button>
         <button class="btn sec" onclick="exportarExcel()">↓ Backup em Excel</button>
-        <button class="btn sec" onclick="importarBackup()">↑ Restaurar (.json)</button>
+        <button class="btn sec" onclick="importarBackup()">↑ Restaurar (.json)</button><button class="btn sec" id="btnPastaBackup" onclick="escolherPastaBackup()">📁 Escolher pasta de backup</button>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <label class="switch"><input type="checkbox" id="autoBackupChk" onchange="setAutoBackup()"><span class="sl"></span></label>
@@ -1420,8 +1420,8 @@ document.addEventListener('click',function(){document.querySelectorAll('.msel-po
 // ===================== CÁLCULOS =====================
 function ehEstorno(l){return l.estorno===true||(l.categoria||'')==='Estornos / Cancelamentos';}
 function catTipo(nome){const c=(dados().categorias||[]).find(x=>x.nome===nome);return c?c.tipo:'';}
-function saldoCatEstorno(cat,base){var pos=0,est=0;(dados().lancamentos||[]).forEach(function(l){if(l.categoria!==cat)return;if(ehEstorno(l))est+=Math.abs(+l.valor||0);else if(l.tipo===base)pos+=(+l.valor||0);});return pos-est;}
-function validaEstorno(tipoSel,cat,valor,idAtual){if(tipoSel!=='estorno_receita'&&tipoSel!=='estorno_despesa')return true;var base=tipoSel==='estorno_receita'?'receita':'despesa';var ct=catTipo(cat);if(ct&&ct!==base){alert(base==='receita'?'Estorno de entrada só vale para categorias de entrada.':'Estorno de saída só vale para categorias de saída.');return false;}var net=saldoCatEstorno(cat,base);if((+valor||0)>net+0.001){alert('O estorno de '+moeda(valor)+' não pode ser maior que o total de '+(base==='receita'?'entradas':'saídas')+' já lançadas nessa categoria ('+moeda(net)+').');return false;}return true;}
+function saldoCatEstorno(cat,base,idAtual){var pos=0,est=0;(dados().lancamentos||[]).forEach(function(l){if(l.categoria!==cat)return;if(idAtual&&l.id===idAtual)return;if(ehEstorno(l))est+=Math.abs(+l.valor||0);else if(l.tipo===base)pos+=(+l.valor||0);});return pos-est;}
+function validaEstorno(tipoSel,cat,valor,idAtual){if(tipoSel!=='estorno_receita'&&tipoSel!=='estorno_despesa')return true;var base=tipoSel==='estorno_receita'?'receita':'despesa';var ct=catTipo(cat);if(ct&&ct!==base){alert(base==='receita'?'Estorno de entrada só vale para categorias de entrada.':'Estorno de saída só vale para categorias de saída.');return false;}var net=saldoCatEstorno(cat,base,idAtual);if((+valor||0)>net+0.001){alert('O estorno de '+moeda(valor)+' não pode ser maior que o total de '+(base==='receita'?'entradas':'saídas')+' já lançadas nessa categoria ('+moeda(net)+').');return false;}return true;}
 function calcular(){
   const all=dados().lancamentos.filter(l=>visivel(l)&&l.status!=='previsto');
   const norm=all.filter(l=>!ehEstorno(l)),est=all.filter(l=>ehEstorno(l));
@@ -2465,33 +2465,11 @@ function excluirTransferencia(ref){
   dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==ref);
   saveApp();fecharModal();render();
 }
-function estornarLanc(lid){
-  const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
-  if(ehEstorno(l)){alert('Este lançamento já é um estorno — não é possível estornar um estorno.');return;}
-  if(!confirm('Gerar estorno deste lançamento? Será criado um lançamento inverso na mesma categoria.'))return;
-  const hoje=new Date();const ds=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
-  const clienteOrig=l.cliente||'';const descOrig=l.descricao||l.servico||'';
-  dados().lancamentos.push({
-    id:id(),data:ds,
-    cliente:clienteOrig?('ESTORNO — '+clienteOrig):'ESTORNO',
-    descricao:'ESTORNO — '+descOrig,
-    servico:l.servico?('ESTORNO — '+l.servico):('ESTORNO — '+descOrig),
-    categoria:l.categoria,
-    banco:l.banco,
-    unidade:l.unidade,
-    tipo:l.tipo==='receita'?'despesa':'receita',
-    valor:+l.valor||0,
-    status:'realizado',
-    estorno:true,
-    estornoDe:l.id,
-    formaPagto:l.formaPagto||'',
-    usuario:usuariaAtivaNome()
-  });
-  saveApp();fecharModal();render();
-  alert('Estorno gerado com sucesso — lançamento inverso criado em '+new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')+'.');
-}
+function estornarLanc(lid){var l=dados().lancamentos.find(function(x){return x.id===lid;});if(!l)return;if(ehEstorno(l)){alert('Este lançamento já é um estorno — não é possível estornar um estorno.');return;}var hoje=new Date();var ds=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');var vl=(typeof moeda==='function')?moeda(+l.valor||0):String(+l.valor||0);document.getElementById('modalConteudo').innerHTML='<h3>Gerar estorno</h3><div class="alerta" style="margin:8px 0"><span>&#8617;</span><div>Será criado um lançamento inverso na mesma categoria. Escolha a data em que o estorno deve acontecer.</div></div><div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:11px;padding:12px 14px;margin-bottom:12px;font-size:13px"><div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0"><span style="color:#8f8073">Lançamento</span><b>'+esc(l.descricao||l.servico||'-')+'</b></div><div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0"><span style="color:#8f8073">Categoria</span><b>'+esc(l.categoria||'-')+'</b></div><div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0"><span style="color:#8f8073">Valor</span><b>'+esc(String(vl))+'</b></div></div><label>Data do estorno</label><input type="date" id="estData" value="'+ds+'" style="width:100%;padding:10px;border:1px solid #e2ddd0;border-radius:10px;margin:6px 0 4px;font-family:inherit"><div class="modal-acoes" style="margin-top:16px"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarEstorno(\''+lid+'\')">Gerar estorno</button></div>';document.getElementById('modalBg').classList.add('show');}
+function confirmarEstorno(lid){var l=dados().lancamentos.find(function(x){return x.id===lid;});if(!l)return;var el=document.getElementById('estData');var ds=el?el.value:'';if(!ds){alert('Escolha a data do estorno.');return;}var clienteOrig=l.cliente||'';var descOrig=l.descricao||l.servico||'';dados().lancamentos.push({id:id(),data:ds,cliente:clienteOrig?('ESTORNO — '+clienteOrig):'ESTORNO',descricao:'ESTORNO — '+descOrig,servico:l.servico?('ESTORNO — '+l.servico):('ESTORNO — '+descOrig),categoria:l.categoria,banco:l.banco,unidade:l.unidade,tipo:l.tipo==='receita'?'despesa':'receita',valor:+l.valor||0,status:'realizado',estorno:true,estornoDe:l.id,formaPagto:l.formaPagto||'',usuario:usuariaAtivaNome()});saveApp();fecharModal();render();alert('Estorno gerado em '+new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')+'.');}
+
 function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const cats=dados().categorias.filter(x=>est||x.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));document.getElementById('eCat').innerHTML=cats.map(x=>`<option value="${esc(x.nome)}" ${x.nome===cur?'selected':''}>${esc(x.nome)}${est?' ('+(x.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('');}
-function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;l.data=document.getElementById('eData').value;l.cliente=document.getElementById('eCliente').value.trim();const serv=document.getElementById('eDesc').value.trim();l.servico=serv;l.descricao=(l.cliente?l.cliente+' — ':'')+serv;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=parseValor(document.getElementById('eValor').value)||0;l.categoria=document.getElementById('eCat').value;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=document.getElementById('eStatus').value;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;saveApp();fecharModal();render();}
+function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;l.data=document.getElementById('eData').value;l.cliente=document.getElementById('eCliente').value.trim();const serv=document.getElementById('eDesc').value.trim();l.servico=serv;l.descricao=(l.cliente?l.cliente+' — ':'')+serv;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=parseValor(document.getElementById('eValor').value)||0;l.categoria=document.getElementById('eCat').value;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=document.getElementById('eStatus').value;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;saveApp();fecharModal();render();}
 function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
 function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
 function fecharModal(){document.getElementById('modalBg').classList.remove('show');}
@@ -2739,8 +2717,17 @@ function confirmarImport(){const t=window._impTemp||[];dados().lancamentos.push(
 // ===================== EXPORT / BACKUP =====================
 function exportarCSV(){const arr=dados().lancamentos.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));let csv='Data;Descricao;Banco;Categoria;Grupo;Tipo;Situacao;Valor\n';arr.forEach(l=>csv+=`${l.data};${(l.descricao||'').replace(/;/g,',')};${l.banco||''};${l.categoria||''};${grupoDaCategoria(l.categoria)};${l.tipo};${l.status||'realizado'};${(l.valor||0).toFixed(2).replace('.',',')}\n`);baixar(csv,`lancamentos-${perfil().nome}.csv`,'text/csv');}
 function nomeArquivoBackup(ext){const p=perfil();const razao=((p.dados.empresas&&p.dados.empresas[0]&&p.dados.empresas[0].razaoSocial)||(p.dados.cliente&&p.dados.cliente.razaoSocial)||p.nome||'cliente');const slug=razao.replace(/[^a-z0-9]/gi,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');const hoje=new Date().toISOString().slice(0,10);return `${slug}_${hoje}.${ext}`;}
-function exportarBackup(){APP.ultimoBackup=new Date().toISOString().slice(0,10);saveApp();baixar(JSON.stringify(APP,null,2),nomeArquivoBackup('json'),'application/json');const t=document.getElementById('ultimoBackupTxt');if(t)t.textContent='Último backup: '+new Date().toLocaleDateString('pt-BR');}
-function renderIntegracao(){const chk=document.getElementById('autoBackupChk');if(!chk)return;const ab=APP.autoBackup||{ativo:false,freq:'semana'};chk.checked=!!ab.ativo;const fr=document.getElementById('autoBackupFreq');if(fr)fr.value=ab.freq||'semana';const t=document.getElementById('ultimoBackupTxt');if(t)t.textContent='Último backup: '+(APP.ultimoBackup?new Date(APP.ultimoBackup+'T00:00:00').toLocaleDateString('pt-BR'):'—');}
+let _bkDirHandle=null;
+function _bkLabel(){var b=document.getElementById('btnPastaBackup');if(b)b.textContent=_bkDirHandle?('📁 '+_bkDirHandle.name):'📁 Escolher pasta de backup';}
+function _bkIdb(){return new Promise(function(res){try{var r=indexedDB.open('inteira_bk',1);r.onupgradeneeded=function(){try{r.result.createObjectStore('h');}catch(e){}};r.onsuccess=function(){res(r.result);};r.onerror=function(){res(null);};}catch(e){res(null);}});}
+async function _bkGet(){try{var db=await _bkIdb();if(!db)return null;return await new Promise(function(res){try{var g=db.transaction('h','readonly').objectStore('h').get('dir');g.onsuccess=function(){res(g.result||null);};g.onerror=function(){res(null);};}catch(e){res(null);}});}catch(e){return null;}}
+async function _bkStore(h){try{var db=await _bkIdb();if(!db)return;await new Promise(function(res){try{var tx=db.transaction('h','readwrite');tx.objectStore('h').put(h,'dir');tx.oncomplete=function(){res();};tx.onerror=function(){res();};}catch(e){res();}});}catch(e){}}
+async function _bkPerm(h){try{var o={mode:'readwrite'};if((await h.queryPermission(o))==='granted')return true;if((await h.requestPermission(o))==='granted')return true;}catch(e){}return false;}
+async function escolherPastaBackup(){if(!window.showDirectoryPicker){alert('Este navegador não permite escolher pasta (use Chrome ou Edge). O backup continua indo para a pasta de Downloads.');return;}try{var h=await window.showDirectoryPicker({mode:'readwrite'});_bkDirHandle=h;await _bkStore(h);_bkLabel();alert('Pasta de backup definida: '+h.name+'. A partir de agora o backup é salvo direto nela. Dica: escolha uma pasta dentro do OneDrive para virar também uma cópia na nuvem.');}catch(e){if(e&&e.name==='AbortError')return;alert('Não consegui definir a pasta: '+((e&&e.message)||e));}}
+async function carregarPastaBackup(){try{var h=await _bkGet();if(h)_bkDirHandle=h;}catch(e){}_bkLabel();}
+async function salvarBackupNaPasta(nome,conteudo){if(!_bkDirHandle)return false;if(!(await _bkPerm(_bkDirHandle)))return false;try{var fh=await _bkDirHandle.getFileHandle(nome,{create:true});var w=await fh.createWritable();await w.write(new Blob([conteudo],{type:'application/json'}));await w.close();return true;}catch(e){console.warn('backup pasta falhou',e);return false;}}
+function exportarBackup(){APP.ultimoBackup=new Date().toISOString().slice(0,10);saveApp();var _nome=nomeArquivoBackup('json');var _cont=JSON.stringify(APP,null,2);salvarBackupNaPasta(_nome,_cont).then(function(ok){if(!ok)baixar(_cont,_nome,'application/json');var t=document.getElementById('ultimoBackupTxt');if(t)t.textContent='Último backup: '+new Date().toLocaleDateString('pt-BR');if(ok)alert('Backup salvo na pasta: '+((_bkDirHandle&&_bkDirHandle.name)||''));});}
+function renderIntegracao(){const chk=document.getElementById('autoBackupChk');if(!chk)return;carregarPastaBackup();const ab=APP.autoBackup||{ativo:false,freq:'semana'};chk.checked=!!ab.ativo;const fr=document.getElementById('autoBackupFreq');if(fr)fr.value=ab.freq||'semana';const t=document.getElementById('ultimoBackupTxt');if(t)t.textContent='Último backup: '+(APP.ultimoBackup?new Date(APP.ultimoBackup+'T00:00:00').toLocaleDateString('pt-BR'):'—');}
 function setAutoBackup(){APP.autoBackup={ativo:document.getElementById('autoBackupChk').checked,freq:document.getElementById('autoBackupFreq').value};saveApp();renderIntegracao();}
 function autoBackupDevido(){const ab=APP.autoBackup;if(!ab||!ab.ativo)return false;if(!APP.ultimoBackup)return true;const dias=(new Date()-new Date(APP.ultimoBackup+'T00:00:00'))/86400000;if(ab.freq==='sempre')return true;if(ab.freq==='dia')return dias>=1;if(ab.freq==='semana')return dias>=7;if(ab.freq==='mes')return dias>=30;return false;}
 function exportarExcel(){
@@ -3309,7 +3296,7 @@ async function criarConta(){
 async function resetSenha(){const e=(document.getElementById('lgEmail').value||'').trim();const m=document.getElementById('lgMsg');if(!e){m.style.color='#f2b8b8';m.textContent='Informe o e-mail para receber o link de redefinição.';return;}try{const{error}=await sb.auth.resetPasswordForEmail(e);m.style.color=error?'#f2b8b8':'#bfe6c9';m.textContent=error?('Erro: '+error.message):'Enviamos um link de redefinição para o seu e-mail.';}catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}}
 function fecharLogin(){const o=document.getElementById('loginOverlay');if(o)o.remove();}
 async function fazerLogin(){const e=(document.getElementById('lgEmail').value||'').trim(),p=document.getElementById('lgSenha').value||'';const m=document.getElementById('lgMsg');m.style.color='#cfe0e6';m.textContent='Entrando...';try{const{error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){m.style.color='#f2b8b8';m.textContent='Não consegui entrar: '+error.message;return;}aposLoginCloud();}catch(x){m.style.color='#f2b8b8';m.textContent='Erro: '+x.message;}}
-async function sairAgora(){try{await sb.auth.signOut();}catch(e){}location.reload();}
+async function sairAgora(){try{await sb.auth.signOut();}catch(e){}try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('painel_fin')===0)localStorage.removeItem(k);});}catch(e){}location.reload();}
 function sairNuvem(){
   /* sem empresa aberta ou sem lançamento: não há o que salvar, sai direto */
   if(!_tenant||!window._cloudReady){sairAgora();return;}
